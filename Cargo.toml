@@ -5,3 +5,7 @@ authors = ["Rust Project Developers"]
 license = "MIT"
 
 [dependencies]
+clap = "2.31"
+failure = "0.1"
+log = "0.4"
+env_logger = "0.5"
