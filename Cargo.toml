@@ -2,5 +2,6 @@
 name = "rust-log-analyzer"
 version = "0.1.0"
 authors = ["Rust Project Developers"]
+license = "MIT"
 
 [dependencies]
