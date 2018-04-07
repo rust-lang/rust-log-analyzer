@@ -19,6 +19,11 @@ static ABOUT: &str = "A collection of tools to run the log analyzer without star
 fn main() {
     util::run(APP_NAME, ABOUT, |app| {
         let matches = app
+            .subcommand(SubCommand::with_name("cat")
+                .about("Decompress a previously downloaded log file and dump it to stdout.")
+                .arg(Arg::from_usage("-s, --strip-control 'Removes all ASCII control characters, except newlines, before dumping.'"))
+                .arg(Arg::from_usage("-d, --decode-utf8 'Lossily decode as UTF-8 before dumping.'"))
+                .arg(Arg::from_usage("<input> 'The (brotli-compressed) log file to read and dump.''")))
             .subcommand(SubCommand::with_name("travis-dl")
                 .about("Download build logs from travis")
                 .arg(Arg::from_usage("-o, --output=<DIRECTORY> 'Log output directory.'").required(true))
@@ -29,6 +34,7 @@ fn main() {
             .get_matches();
 
         match matches.subcommand() {
+            ("cat", Some(args)) => offline::dl::cat(args),
             ("travis-dl", Some(args)) => offline::dl::travis(args),
             _ => bail!("No command provided. Use --help to list available commands."),
         }

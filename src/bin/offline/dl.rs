@@ -2,10 +2,31 @@ use clap;
 use offline;
 use rla;
 use std::collections::HashSet;
+use std::io::{self, Write};
 use std::path::Path;
 use std::str::FromStr;
 
 const LOG_DL_MAX_ATTEMPTS: u32 = 3;
+
+pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
+    let input = Path::new(args.value_of_os("input").unwrap());
+
+    let mut data = offline::fs::load(input)?;
+
+    if args.is_present("strip-control") {
+        data.retain(|&b| b == b'\n' || !b.is_ascii_control());
+    }
+
+    if args.is_present("decode-utf8") {
+        let stdout = io::stdout();
+        stdout.lock().write_all(String::from_utf8_lossy(&data).as_bytes())?;
+    } else {
+        let stdout = io::stdout();
+        stdout.lock().write_all(&data)?;
+    }
+
+    Ok(())
+}
 
 pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
     let count: u32 = args.value_of("count").unwrap().parse()?;

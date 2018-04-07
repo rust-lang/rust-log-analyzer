@@ -1,7 +1,7 @@
 use brotli;
 use rla;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 
 const BROTLI_BUFFER: usize = 4096;
@@ -17,4 +17,13 @@ pub fn save(out: &Path, data: &[u8]) -> rla::Result<()> {
     writer.write_all(data)?;
 
     Ok(())
+}
+
+pub fn load(inp: &Path) -> rla::Result<Vec<u8>> {
+    let mut reader = brotli::Decompressor::new(fs::File::open(inp)?, BROTLI_BUFFER);
+
+    let mut buf = vec![];
+    reader.read_to_end(&mut buf)?;
+
+    Ok(buf)
 }
