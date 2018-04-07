@@ -5,6 +5,7 @@ authors = ["Rust Project Developers"]
 license = "MIT"
 
 [dependencies]
+brotli = "1.2"
 clap = "2.31"
 env_logger = "0.5"
 failure = "0.1"
@@ -13,3 +14,4 @@ log = "0.4"
 reqwest = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
+serde_json = "1.0"

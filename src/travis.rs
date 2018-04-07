@@ -1,10 +1,13 @@
 use super::Result;
+use failure;
 use hyper::header;
 use reqwest;
 use std::cmp;
 use std::env;
 use std::io::Read;
 use std::time::Duration;
+use std::str;
+use std::fmt;
 
 header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 
@@ -45,7 +48,7 @@ pub struct Commit {
     pub message: String,
 }
 
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum JobState {
     Received,
@@ -56,6 +59,47 @@ pub enum JobState {
     Canceled,
     Errored,
     Failed,
+}
+
+impl str::FromStr for JobState {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        use self::JobState::*;
+
+        let state = match s {
+            "received" => Received,
+            "queued" => Queued,
+            "created" => Created,
+            "started" => Started,
+            "passed" => Passed,
+            "canceled" => Canceled,
+            "errored" => Errored,
+            "failed" => Failed,
+            _ => bail!("Unknown job state: '{}'", s),
+        };
+
+        Ok(state)
+    }
+}
+
+impl fmt::Display for JobState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::JobState::*;
+
+        let s = match *self {
+            Received => "received",
+            Queued => "queued",
+            Created => "created",
+            Started => "started",
+            Passed => "passed",
+            Canceled => "canceled",
+            Errored => "errored",
+            Failed => "failed",
+        };
+
+        f.pad(s)
+    }
 }
 
 impl JobState {

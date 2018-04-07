@@ -8,13 +8,13 @@ use std::process;
 pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str, f: F) {
     let mut log_builder = env_logger::Builder::new();
 
-    if let Ok(s) = env::var("RUST_LOG") {
+    if let Ok(s) = env::var("RLA_LOG") {
         log_builder.parse(&s);
     } else {
         log_builder.filter(None, log::LevelFilter::Info);
     }
 
-    if let Ok(s) = env::var("RUST_LOG_STYLE") {
+    if let Ok(s) = env::var("RLA_LOG_STYLE") {
         log_builder.parse_write_style(&s);
     }
 
