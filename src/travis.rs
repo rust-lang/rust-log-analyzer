@@ -4,10 +4,10 @@ use hyper::header;
 use reqwest;
 use std::cmp;
 use std::env;
-use std::io::Read;
-use std::time::Duration;
-use std::str;
 use std::fmt;
+use std::io::Read;
+use std::str;
+use std::time::Duration;
 
 header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 

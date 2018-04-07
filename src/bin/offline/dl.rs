@@ -56,7 +56,8 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
         loop {
             attempt += 1;
 
-            info!("Downloading log for Travis job #{} [Attempt {}/{}]...", job.id, attempt, LOG_DL_MAX_ATTEMPTS);
+            info!("Downloading log for Travis job #{} [Attempt {}/{}]...",
+                  job.id, attempt, LOG_DL_MAX_ATTEMPTS);
 
             match travis.query_log(job) {
                 Ok(d) => {
@@ -74,7 +75,8 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
 
         debug!("Compressing...");
 
-        offline::fs::save(&output.join(format!("travis.{}.{}.log.brotli", job.id, job.state)), &data)?;
+        offline::fs::save(&output.join(format!("travis.{}.{}.log.brotli", job.id, job.state)),
+                          &data)?;
     }
 
     Ok(())
