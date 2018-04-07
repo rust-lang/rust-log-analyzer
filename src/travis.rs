@@ -1,5 +1,4 @@
 use super::Result;
-use failure;
 use hyper::header;
 use reqwest;
 use std::cmp;
@@ -48,7 +47,7 @@ pub struct Commit {
     pub message: String,
 }
 
-#[derive(Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum JobState {
     Received,
@@ -59,28 +58,6 @@ pub enum JobState {
     Canceled,
     Errored,
     Failed,
-}
-
-impl str::FromStr for JobState {
-    type Err = failure::Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        use self::JobState::*;
-
-        let state = match s {
-            "received" => Received,
-            "queued" => Queued,
-            "created" => Created,
-            "started" => Started,
-            "passed" => Passed,
-            "canceled" => Canceled,
-            "errored" => Errored,
-            "failed" => Failed,
-            _ => bail!("Unknown job state: '{}'", s),
-        };
-
-        Ok(state)
-    }
 }
 
 impl fmt::Display for JobState {

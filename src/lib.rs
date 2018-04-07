@@ -19,7 +19,7 @@ extern crate serde_derive;
 pub mod index;
 pub mod travis;
 
-pub use index::Index;
+pub use self::index::Index;
 
 pub static USER_AGENT: &str = concat!("rust-ops/rust-log-analyzer ", env!("CARGO_PKG_VERSION"));
 

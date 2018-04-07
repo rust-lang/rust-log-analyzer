@@ -2,6 +2,7 @@ use super::Result;
 use atomicwrites;
 use bincode;
 use fnv;
+use std;
 use std::fs;
 use std::path::Path;
 use std::slice;
@@ -23,7 +24,7 @@ impl Index {
         }
     }
 
-    pub fn scores(&self, data: &[u8]) -> impl Iterator<Item = u32> {
+    pub fn scores(&self, data: &[u8]) -> std::vec::IntoIter<u32> {
         let encoded = encode(data);
 
         IdIter::new(&encoded)
