@@ -3,3 +3,6 @@ cache: cargo
 
 script:
   - cargo test
+
+notifications:
+  email: false
