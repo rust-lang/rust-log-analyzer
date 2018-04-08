@@ -68,7 +68,7 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
             log::Level::Trace
         };
 
-        log!(level, "Extracting erros from {} [{}/?]...", entry.path().display(), count);
+        log!(level, "Extracting errors from {} [{}/?]...", entry.path().display(), count);
 
         let log = offline::fs::load_maybe_compressed(entry.path())?;
         let lines = load_lines(&log);

@@ -6,10 +6,16 @@ use std::mem;
 /// Plaintext patterns which, if found in a line, cause all remaining lines to be ignored until the
 /// corresponding `IGNORE_BLOCK_END` pattern is found in a line.
 static IGNORE_BLOCK_START: &[&str] = &[
+    // apt-get install's actual output is unpredictable
+    "+ apt-get install",
+    // The network speeds Kb/s / Mb/s mess things up
+    "Cloning into 'rust-lang/rust'...",
 ];
 
 /// See `IGNORE_BLOCK_START`.
 static IGNORE_BLOCK_END: &[&str] = &[
+    " removed; done.",
+    "git checkout -qf "
 ];
 
 lazy_static! {
