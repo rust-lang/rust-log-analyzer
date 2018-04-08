@@ -26,7 +26,7 @@ pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str,
         .about(about);
 
     if let Err(e) = f(app) {
-        error!("{}", e);
+        error!("{}\n\n{}", e, e.backtrace());
         process::exit(1);
     }
 }

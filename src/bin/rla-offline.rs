@@ -34,10 +34,15 @@ fn main() {
                 .arg(Arg::from_usage("-m, --multiplier=[INT] 'A multiplier to apply when learning. Defaults to 1.'")
                     .default_value("1"))
                 .arg(Arg::from_usage("<logs>... 'The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore.'")))
+            .subcommand(SubCommand::with_name("extract-dir")
+                .about("Extract potential error messages from all log files in a directory, writing the results to a different directory.")
+                .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
+                .arg(Arg::from_usage("-s, --source=<DIR> 'The directory in which to (non-recursively) look for log files. Hidden files are ignored.'"))
+                .arg(Arg::from_usage("-d, --destination=<DIR> 'The directory in which to write the results. All non-hidden will be deleted from the directory.'")))
             .subcommand(SubCommand::with_name("extract-one")
                 .about("Extract a potential error message from a single log file.")
                 .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
-                .arg(Arg::from_usage("<log> The log file to analyze.")))
+                .arg(Arg::from_usage("<log> 'The log file to analyze.'")))
             .subcommand(SubCommand::with_name("travis-dl")
                 .about("Download build logs from travis")
                 .arg(Arg::from_usage("-o, --output=<DIRECTORY> 'Log output directory.'"))
@@ -52,6 +57,7 @@ fn main() {
 
         match matches.subcommand() {
             ("cat", Some(args)) => offline::dl::cat(args),
+            ("extract-dir", Some(args)) => offline::extract::dir(args),
             ("extract-one", Some(args)) => offline::extract::one(args),
             ("learn", Some(args)) => offline::learn(args),
             ("travis-dl", Some(args)) => offline::dl::travis(args),
