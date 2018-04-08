@@ -11,12 +11,14 @@ extern crate hyper;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate regex;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
 pub mod index;
+pub mod sanitize;
 pub mod travis;
 
 pub use self::index::Index;
