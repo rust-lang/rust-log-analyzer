@@ -71,6 +71,13 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
             continue;
         }
 
+        let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id, job.state));
+
+        if save_path.is_file() {
+            warn!("Skipping log for Travis job #{} because the output file exists.", job.id);
+            continue;
+        }
+
         let data;
         let mut attempt = 0;
 
@@ -96,9 +103,7 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
 
         debug!("Compressing...");
 
-        offline::fs::save_compressed(
-            &output.join(format!("travis.{}.{}.log.brotli", job.id, job.state)),
-            &data)?;
+        offline::fs::save_compressed(&save_path, &data)?;
     }
 
     Ok(())
