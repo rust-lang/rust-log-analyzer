@@ -53,10 +53,18 @@ impl Index {
         Ok(())
     }
 
+    pub fn load(path: &Path) -> Result<Index> {
+        Index::load_or_create_internal(path, false)
+    }
+
     pub fn load_or_create(path: &Path) -> Result<Index> {
+        Index::load_or_create_internal(path, true)
+    }
+
+    fn load_or_create_internal(path: &Path, create: bool) -> Result<Index> {
         let index;
 
-        if path.exists() {
+        if path.exists() || !create {
             info!("Loading index...");
             index = bincode::deserialize_from(fs::File::open(path)?)?;
         } else {

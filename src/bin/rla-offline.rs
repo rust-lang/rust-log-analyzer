@@ -24,16 +24,20 @@ fn main() {
     util::run(APP_NAME, ABOUT, |app| {
         let matches = app
             .subcommand(SubCommand::with_name("cat")
-                .about("Decompress a previously downloaded log file and dump it to stdout.")
+                .about("Read, and optionally process, a previously downloaded log file, then dump it to stdout.")
                 .arg(Arg::from_usage("-s, --strip-control 'Removes all ASCII control characters, except newlines, before dumping.'"))
                 .arg(Arg::from_usage("-d, --decode-utf8 'Lossily decode as UTF-8 before dumping.'"))
-                .arg(Arg::from_usage("<input> 'The (brotli-compressed) log file to read and dump.'")))
+                .arg(Arg::from_usage("<input> 'The log file to read and dump.'")))
             .subcommand(SubCommand::with_name("learn")
                 .about("Learn from previously downloaded log files.")
                 .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write. An existing index file is updated.'"))
                 .arg(Arg::from_usage("-m, --multiplier=[INT] 'A multiplier to apply when learning. Defaults to 1.'")
                     .default_value("1"))
-                .arg(Arg::from_usage("<logs>... 'The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore. Files with the '.brotli' extension are assumed to be compressed, other files are assumed to be uncompressed.'")))
+                .arg(Arg::from_usage("<logs>... 'The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore.'")))
+            .subcommand(SubCommand::with_name("extract-one")
+                .about("Extract a potential error message from a single log file.")
+                .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
+                .arg(Arg::from_usage("<log> The log file to analyze.")))
             .subcommand(SubCommand::with_name("travis-dl")
                 .about("Download build logs from travis")
                 .arg(Arg::from_usage("-o, --output=<DIRECTORY> 'Log output directory.'"))
@@ -48,6 +52,7 @@ fn main() {
 
         match matches.subcommand() {
             ("cat", Some(args)) => offline::dl::cat(args),
+            ("extract-one", Some(args)) => offline::extract::one(args),
             ("learn", Some(args)) => offline::learn(args),
             ("travis-dl", Some(args)) => offline::dl::travis(args),
             _ => bail!("No command provided. Use --help to list available commands."),
