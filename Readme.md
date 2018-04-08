@@ -32,7 +32,7 @@ To initialize a new index file, perform the following steps:
 
 ### Analyzing a specific log
 
-1. Download the log file you want to analyze using either the `rla-offline travis-dl` command or manually for [travis-ci.org](https:/travis-ci.org).
+1. Download the log file you want to analyze using either the `rla-offline travis-dl` command or manually from [travis-ci.org](https:/travis-ci.org).
     * All tools will automatically decompress files ending in `.brotli`, or assume uncompressed data otherwise.
 2. Use the `rla-offline extract-one` command analyze the log file.
     * Example command: `rla-offline extract-one -i demo.idx my-log.txt`
