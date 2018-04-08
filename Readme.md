@@ -36,3 +36,15 @@ To initialize a new index file, perform the following steps:
     * All tools will automatically decompress files ending in `.brotli`, or assume uncompressed data otherwise.
 2. Use the `rla-offline extract-one` command analyze the log file.
     * Example command: `rla-offline extract-one -i demo.idx my-log.txt`
+
+### Evaluating quality while developing
+
+*Note: This process will / should be integrated as regression tests.*
+
+1. Download, or otherwise curate, a set of log files you want to evaluate against.
+    * Example command: `rla-offline travis-dl -c 50 -jfailed,errored -o data/failed --query ''`
+    * *Note: Eventually, a set of test log files will be provided in the repository.*
+2. Use the `rla-offline extract-dir` command to analyze all the log files and write the results to a separate directory.
+    * You can (temporarily) check the result directory in to the repository to see diffs.
+    * Example command: `rla-offline extract-dir -i demo.idx -s data/failed -d data/err`
+    * *Note: Eventually, the expected results for the test log files will be provided in the repository and used as regression tests.*
