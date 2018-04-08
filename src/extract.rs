@@ -10,12 +10,15 @@ static IGNORE_BLOCK_START: &[&str] = &[
     "+ apt-get install",
     // The network speeds Kb/s / Mb/s mess things up
     "Cloning into 'rust-lang/rust'...",
+    // The output can vary wildly
+    "Disk usage after running",
 ];
 
 /// See `IGNORE_BLOCK_START`.
 static IGNORE_BLOCK_END: &[&str] = &[
     " removed; done.",
-    "git checkout -qf "
+    "git checkout -qf ",
+    "travis_time:end:",
 ];
 
 lazy_static! {
@@ -32,6 +35,7 @@ pub struct Config {
     pub block_separator_max_score: u32,
     pub unique_line_min_score: u32,
     pub block_max_lines: u32,
+    pub context_lines: usize,
 }
 
 impl Default for Config {
@@ -42,6 +46,7 @@ impl Default for Config {
             block_separator_max_score: 0,
             unique_line_min_score: 50,
             block_max_lines: 500,
+            context_lines: 4,
         }
     }
 }
@@ -67,6 +72,8 @@ struct Line<'i, I: IndexData + 'i> {
 }
 
 pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i [I]) -> Vec<Vec<&'i I>> {
+    assert!(config.context_lines < config.block_merge_distance);
+
     let lines: Vec<Line<_>> = lines.iter().map(|line| Line {
         line,
         score: score(config, index, line),
@@ -80,8 +87,12 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
     let mut active_block = vec![];
     let mut blocks = vec![];
 
+    let mut trailing_context = 0;
+
     while i < lines.len() {
         if let Some(m) = IGNORE_BLOCK_START_A.find(lines[i].line.sanitized()).next() {
+            trailing_context = 0;
+
             if let State::Printing = state {
                 if !active_block.is_empty() {
                     blocks.push(mem::replace(&mut active_block, vec![]));
@@ -107,6 +118,12 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
                 state = State::SearchingOutlier;
                 section_start = i;
             } else {
+                if trailing_context > 0 {
+                    trailing_context -= 1;
+                    blocks.last_mut().unwrap().push(lines[i].line);
+                    prev_section_end = i;
+                }
+
                 i += 1;
                 continue;
             }
@@ -114,12 +131,20 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
 
         if let State::SearchingOutlier = state {
             if lines[i].score <= config.block_separator_max_score {
+                if trailing_context > 0 {
+                    trailing_context -= 1;
+                    blocks.last_mut().unwrap().push(lines[i].line);
+                    prev_section_end = i;
+                }
+
                 state = State::SearchingSectionStart;
                 i += 1;
                 continue;
             }
 
             if lines[i].score >= config.unique_line_min_score {
+                trailing_context = 0;
+
                 let start_printing;
 
                 if prev_section_end + config.block_merge_distance >= section_start {
@@ -129,7 +154,7 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
                     }
                     start_printing = prev_section_end;
                 } else {
-                    start_printing = section_start;
+                    start_printing = section_start.saturating_sub(config.context_lines);
                 }
 
                 for j in start_printing .. i {
@@ -138,6 +163,15 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
 
                 state = State::Printing;
             } else {
+                if trailing_context > 0 {
+                    trailing_context -= 1;
+                    blocks.last_mut().unwrap().push(lines[i].line);
+                    prev_section_end = i;
+
+                    // No need to update section_start since we'll trigger the `merge` case above
+                    // anyway (prev_section_end >= section_start).
+                }
+
                 i += 1;
                 continue;
             }
@@ -150,6 +184,8 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
                 }
                 prev_section_end = i;
                 state = State::SearchingSectionStart;
+
+                trailing_context = config.context_lines;
             } else {
                 active_block.push(lines[i].line);
             }
