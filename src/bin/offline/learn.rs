@@ -40,7 +40,7 @@ pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
         let data = offline::fs::load_maybe_compressed(input.path())?;
 
         for line in rla::sanitize::split_lines(&data) {
-            index.learn(&rla::sanitize::clean(line), multiplier);
+            index.learn(&rla::index::Sanitized(rla::sanitize::clean(line)), multiplier);
         }
     }
 

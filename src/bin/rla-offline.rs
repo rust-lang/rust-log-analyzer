@@ -1,3 +1,6 @@
+#![deny(unused_must_use)]
+#![cfg_attr(feature = "cargo-clippy", allow(needless_range_loop, useless_let_if_seq))]
+
 extern crate brotli;
 #[macro_use]
 extern crate clap;

@@ -5,6 +5,7 @@ authors = ["Rust Project Developers"]
 license = "MIT"
 
 [dependencies]
+aho-corasick = "0.6"
 atomicwrites = "0.2"
 bincode = "1.0"
 brotli = "1.2"

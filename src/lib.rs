@@ -1,5 +1,7 @@
 #![deny(unused_must_use)]
+#![cfg_attr(feature = "cargo-clippy", allow(needless_range_loop, useless_let_if_seq))]
 
+extern crate aho_corasick;
 extern crate atomicwrites;
 extern crate bincode;
 #[macro_use]
@@ -17,6 +19,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+pub mod extract;
 pub mod index;
 pub mod sanitize;
 pub mod travis;

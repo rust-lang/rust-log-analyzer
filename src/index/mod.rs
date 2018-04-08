@@ -9,13 +9,25 @@ use std::slice;
 
 mod table;
 
+pub trait IndexData {
+    fn sanitized(&self) -> &[u8];
+}
+
+pub struct Sanitized<T: AsRef<[u8]>>(pub T);
+
+impl<T: AsRef<[u8]>> IndexData for Sanitized<T> {
+    fn sanitized(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
 #[derive(Default, Serialize, Deserialize)]
 pub struct Index {
     internal: fnv::FnvHashMap<u32, u32>,
 }
 
 impl Index {
-    pub fn learn(&mut self, data: &[u8], multiplier: u32) {
+    pub fn learn<I: IndexData>(&mut self, data: &I, multiplier: u32) {
         let encoded = encode(data);
 
         for id in IdIter::new(&encoded) {
@@ -24,7 +36,7 @@ impl Index {
         }
     }
 
-    pub fn scores(&self, data: &[u8]) -> std::vec::IntoIter<u32> {
+    pub fn scores<I: IndexData>(&self, data: &I) -> std::vec::IntoIter<u32> {
         let encoded = encode(data);
 
         IdIter::new(&encoded)
@@ -58,8 +70,12 @@ impl Index {
     }
 }
 
-pub fn encode(data: &[u8]) -> Vec<u8> {
-    data.iter().map(|&b| table::ASCII_ID_MAP[b as usize]).filter(|&b| b != 0xFF).collect()
+pub fn encode<I: IndexData>(data: &I) -> Vec<u8> {
+    data.sanitized()
+        .iter()
+        .map(|&b| table::ASCII_ID_MAP[b as usize])
+        .filter(|&b| b != 0xFF)
+        .collect()
 }
 
 pub fn decode(data: &[u8]) -> Vec<u8> {
