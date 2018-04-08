@@ -10,7 +10,7 @@ const LOG_DL_MAX_ATTEMPTS: u32 = 3;
 pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
     let input = Path::new(args.value_of_os("input").unwrap());
 
-    let mut data = offline::fs::load(input)?;
+    let mut data = offline::fs::load_compressed(input)?;
 
     if args.is_present("strip-control") {
         data.retain(|&b| b == b'\n' || !b.is_ascii_control());
@@ -96,8 +96,9 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
 
         debug!("Compressing...");
 
-        offline::fs::save(&output.join(format!("travis.{}.{}.log.brotli", job.id, job.state)),
-                          &data)?;
+        offline::fs::save_compressed(
+            &output.join(format!("travis.{}.{}.log.brotli", job.id, job.state)),
+            &data)?;
     }
 
     Ok(())
