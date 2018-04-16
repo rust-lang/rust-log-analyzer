@@ -34,7 +34,7 @@ pub struct Config {
     pub block_merge_distance: usize,
     pub block_separator_max_score: u32,
     pub unique_line_min_score: u32,
-    pub block_max_lines: u32,
+    pub block_max_lines: usize,
     pub context_lines: usize,
 }
 
@@ -202,6 +202,7 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
     }
 
     blocks.retain(|block| !block.is_empty());
+    blocks.iter_mut().for_each(|block| block.truncate(config.block_max_lines));
 
     blocks
 }

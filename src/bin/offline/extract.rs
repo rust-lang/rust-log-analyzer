@@ -10,7 +10,7 @@ use std::time::Instant;
 use std::time::Duration;
 
 struct Line<'a> {
-    original: &'a [u8],
+    _original: &'a [u8],
     sanitized: Vec<u8>,
 }
 
@@ -22,7 +22,7 @@ impl<'a> rla::index::IndexData for Line<'a> {
 
 fn load_lines(log: &[u8]) -> Vec<Line> {
     rla::sanitize::split_lines(log).iter().map(|&line| Line {
-        original: line,
+        _original: line,
         sanitized: rla::sanitize::clean(line)
     }).collect()
 }
@@ -46,18 +46,15 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
         fs::remove_file(entry.path())?;
     }
 
-    let mut count = 0;
     let progress_every = Duration::from_secs(1);
     let mut last_print = Instant::now();
 
-    for entry in walk_non_hidden_children(src_dir) {
+    for (count, entry) in walk_non_hidden_children(src_dir).enumerate() {
         let entry = entry?;
 
         if entry.file_type().is_dir() {
             continue;
         }
-
-        count += 1;
 
         let now = Instant::now();
 

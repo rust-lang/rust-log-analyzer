@@ -45,6 +45,7 @@ pub struct Branch {
 #[derive(Deserialize, Debug)]
 pub struct Commit {
     pub message: String,
+    pub sha: String,
 }
 
 #[derive(Copy, Clone, Deserialize, PartialEq, Eq, Hash, Debug)]

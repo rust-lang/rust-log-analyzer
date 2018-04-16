@@ -14,17 +14,14 @@ pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
 
     let mut index = rla::Index::load_or_create(index_file)?;
 
-    let mut count = 0;
     let progress_every = Duration::from_secs(1);
     let mut last_print = Instant::now();
 
-    for input in inputs.flat_map(|i| WalkDir::new(i).into_iter().filter_entry(not_hidden)) {
+    for (count, input) in inputs.flat_map(|i| WalkDir::new(i).into_iter().filter_entry(not_hidden)).enumerate() {
         let input = input?;
         if input.file_type().is_dir() {
             continue;
         }
-
-        count += 1;
 
         let now = Instant::now();
 

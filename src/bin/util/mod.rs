@@ -25,7 +25,11 @@ pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str,
         .author(crate_authors!())
         .about(about);
 
-    if let Err(e) = f(app) {
+    log_and_exit_error(|| f(app));
+}
+
+pub fn log_and_exit_error<F: FnOnce() -> rla::Result<()>>(f: F) {
+    if let Err(e) = f() {
         error!("{}\n\n{}", e, e.backtrace());
         process::exit(1);
     }
