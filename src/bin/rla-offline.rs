@@ -31,7 +31,7 @@ fn main() {
             .subcommand(SubCommand::with_name("learn")
                 .about("Learn from previously downloaded log files.")
                 .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write. An existing index file is updated.'"))
-                .arg(Arg::from_usage("-m, --multiplier=[INT] 'A multiplier to apply when learning. Defaults to 1.'")
+                .arg(Arg::from_usage("-m, --multiplier=[INT] 'A multiplier to apply when learning.'")
                     .default_value("1"))
                 .arg(Arg::from_usage("<logs>... 'The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore.'")))
             .subcommand(SubCommand::with_name("extract-dir")

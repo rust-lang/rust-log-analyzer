@@ -29,9 +29,9 @@ static ABOUT: &str = "A http server that listens for GitHub webhooks and posts c
 fn main() {
     util::run(APP_NAME, ABOUT, |app| {
         let matches = app
-            .arg(Arg::from_usage("-p, --port=[INT] 'The port to listen on for HTTP connections. Defaults to 8080.'")
+            .arg(Arg::from_usage("-p, --port=[INT] 'The port to listen on for HTTP connections.'")
                 .default_value("8080"))
-            .arg(Arg::from_usage("-b, --bind=[ADDRESS] 'The address to bind. Defaults to 128.0.0.1.'")
+            .arg(Arg::from_usage("-b, --bind=[ADDRESS] 'The address to bind.'")
                 .default_value("127.0.0.1"))
             .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
             .arg(Arg::from_usage("--debug-post=[GITHUB_ISSUE] 'Post all comments to the given issue instead of the actual PR. Format: \"user/repo#id\"'"))
