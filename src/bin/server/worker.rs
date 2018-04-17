@@ -130,7 +130,19 @@ impl Worker {
         if !is_bors {
             let pr_info = self.github.query_pr("rust-lang/rust", pr)?;
 
-            if pr_info.head.sha != build.commit.sha {
+            let commit_info = self.github.query_commit("rust-lang/rust", &build.commit.sha)?;
+
+            if !commit_info.commit.message.starts_with("Merge ") {
+                bail!("Did not recognize commit {} with message '{}', skipping report.", build.commit.sha, commit_info.commit.message);
+            }
+
+            let sha = commit_info.commit.message.split(' ').nth(1)
+                .ok_or_else(|| format_err!("Did not recognize commit {} with message '{}', skipping report.",
+                            build.commit.sha, commit_info.commit.message))?;
+
+            debug!("Extracted head commit sha: '{}'", sha);
+
+            if pr_info.head.sha != sha {
                 info!("Build results outdated, skipping report.");
                 return Ok(());
             }

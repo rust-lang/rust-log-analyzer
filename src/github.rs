@@ -24,6 +24,16 @@ pub struct PrCommitRef {
     pub sha: String,
 }
 
+#[derive(Deserialize)]
+pub struct CommitMeta {
+    pub commit: Commit,
+}
+
+#[derive(Deserialize)]
+pub struct Commit {
+    pub message: String,
+}
+
 pub struct Client {
     internal: reqwest::Client,
 }
@@ -62,6 +72,16 @@ impl Client {
 
         if !resp.status().is_success() {
             bail!("Querying PR failed: {:?}", resp);
+        }
+
+        Ok(resp.json()?)
+    }
+
+    pub fn query_commit(&self, repo: &str, sha: &str) -> Result<CommitMeta> {
+        let mut resp = self.internal.get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str()).send()?;
+
+        if !resp.status().is_success() {
+            bail!("Querying commit failed: {:?}", resp);
         }
 
         Ok(resp.json()?)
