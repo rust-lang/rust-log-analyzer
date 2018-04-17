@@ -26,7 +26,7 @@ impl Worker {
         let debug_post = match args.value_of("debug-post") {
             None => None,
             Some(v) => {
-                let parts = v.splitn(1, '#').collect::<Vec<_>>();
+                let parts = v.splitn(2, '#').collect::<Vec<_>>();
                 if parts.len() != 2 {
                     bail!("Invalid debug-post argument: '{}'", v);
                 }
