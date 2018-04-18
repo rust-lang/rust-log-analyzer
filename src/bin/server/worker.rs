@@ -1,7 +1,9 @@
 use super::QueueItem;
 
 use clap;
+use regex::bytes::Regex;
 use rla;
+use std::str;
 use std::sync;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -156,8 +158,13 @@ impl Worker {
             None => ("rust-lang/rust", pr),
         };
 
+        let opening = match extract_job_name(&lines) {
+            Some(job_name) => format!("The job `{}` of your PR", job_name),
+            None => "Your PR".to_owned(),
+        };
+
         self.github.post_comment(repo, pr, &format!(r#"
-Your PR [failed on Travis](https://travis-ci.org/rust-lang/rust/jobs/{job}) ([raw log](https://api.travis-ci.org/v3/job/{job}/log.txt)). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
+{opening} [failed on Travis](https://travis-ci.org/rust-lang/rust/jobs/{job}) ([raw log](https://api.travis-ci.org/v3/job/{job}/log.txt)). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
 
 <details><summary><i>Click to expand the log.</i></summary>
 
@@ -168,7 +175,7 @@ Your PR [failed on Travis](https://travis-ci.org/rust-lang/rust/jobs/{job}) ([ra
 </details><p></p>
 
 [I'm a bot](https://github.com/rust-ops/rust-log-analyzer)! I can only do what humans tell me to, so if this was not helpful or you have suggestions for improvements, please ping or otherwise contact **`@TimNN`**. ([Feature Requests](https://github.com/rust-ops/rust-log-analyzer/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request))
-        "#, job = job.id, log = extracted))?;
+        "#, opening = opening, job = job.id, log = extracted))?;
 
         Ok(())
     }
@@ -199,4 +206,18 @@ Your PR [failed on Travis](https://travis-ci.org/rust-lang/rust/jobs/{job}) ([ra
 
         Ok(())
     }
+}
+
+fn extract_job_name<I: rla::index::IndexData>(lines: &[I]) -> Option<&str> {
+    lazy_static! {
+        static ref JOB_NAME_PATTERN: Regex = Regex::new("\\[CI_JOB_NAME=([^\\]]+)\\]").unwrap();
+    }
+
+    for line in lines {
+        if let Some (m) = JOB_NAME_PATTERN.captures(line.sanitized()) {
+            return str::from_utf8(m.get(1).unwrap().as_bytes()).ok();
+        }
+    }
+
+    None
 }

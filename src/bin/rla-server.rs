@@ -10,7 +10,10 @@ extern crate futures;
 #[macro_use]
 extern crate hyper;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
+extern crate regex;
 extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
