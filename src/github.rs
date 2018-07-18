@@ -12,6 +12,7 @@ static API_BASE: &str = "https://api.github.com";
 #[derive(Deserialize)]
 pub struct CommitStatusEvent {
     pub target_url: String,
+    pub context: String,
 }
 
 #[derive(Deserialize)]

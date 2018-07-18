@@ -62,7 +62,8 @@ impl Worker {
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
         match item {
             QueueItem::GitHubStatus(ev) => {
-                if !ev.target_url.starts_with(TRAVIS_TARGET_RUST_PREFIX) {
+                if !(ev.target_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
+                        && ev.context.contains("travis")) {
                     info!("Ignoring non-travis event.");
                     return Ok(())
                 }
