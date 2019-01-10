@@ -80,13 +80,26 @@ impl RlaService {
                     }
                 }
             }
+            "check_run" => {
+                let payload = match serde_json::from_slice(body) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("Failed to decode 'check_run' web hook payload: {}", e);
+                        return StatusCode::BadRequest;
+                    }
+                };
+
+                match self.queue.send(QueueItem::GitHubCheckRun(payload)) {
+                    Ok(()) => StatusCode::Ok,
+                    Err(e) => {
+                        error!("Failed to queue payload: {}", e);
+                        StatusCode::InternalServerError
+                    }
+                }
+            }
             "issue_comment" => {
                 debug!("Ignoring 'issue_comment' event.");
                 StatusCode::Ok
-            }
-            "check_run" => {
-                debug!("Ignoring 'check_run' event: {:?}", String::from_utf8_lossy(body));
-                StatusCode::BadRequest
             }
             _ => {
                 warn!("Unexpected '{}' event.", event);

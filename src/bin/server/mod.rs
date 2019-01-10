@@ -8,4 +8,5 @@ mod worker;
 
 pub enum QueueItem {
     GitHubStatus(rla::github::CommitStatusEvent),
+    GitHubCheckRun(rla::github::CheckRunEvent),
 }

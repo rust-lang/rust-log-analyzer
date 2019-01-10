@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use hyper::Uri;
 
+const TRAVIS_APP_ID: u64 = 67;
 static TRAVIS_TARGET_RUST_PREFIX: &str = "https://travis-ci.com/rust-lang/rust/";
 
 pub struct Worker {
@@ -70,6 +71,38 @@ impl Worker {
 
                 let build_id =
                     Uri::from_str(&ev.target_url)?
+                        .path().rsplit('/')
+                        .next().ok_or_else(|| format_err!("Invalid event URL."))?
+                        .parse()?;
+
+                info!("Processing Travis build #{}...", build_id);
+
+                let build = self.travis.query_build(build_id)?;
+
+                if !build.state.finished() {
+                    info!("Ignoring in-progress build.");
+                    return Ok(());
+                }
+
+                if build.state != rla::travis::JobState::Passed {
+                    self.report_failed(&build)?;
+                }
+
+                if build.pull_request_number.is_none() && build.branch.name == "auto" {
+                    self.learn(&build)?;
+                }
+
+                Ok(())
+            }
+            QueueItem::GitHubCheckRun(ev) => {
+                if !(ev.check_run.details_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
+                    && ev.check_run.app.id == TRAVIS_APP_ID) {
+                    info!("Ignoring non-travis event (id: {:?}, url: {:?}).", ev.check_run.app.id, ev.check_run.details_url);
+                    return Ok(())
+                }
+
+                let build_id =
+                    Uri::from_str(&ev.check_run.details_url)?
                         .path().rsplit('/')
                         .next().ok_or_else(|| format_err!("Invalid event URL."))?
                         .parse()?;

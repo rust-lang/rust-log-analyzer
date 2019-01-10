@@ -44,6 +44,22 @@ struct Comment<'a> {
     body: &'a str,
 }
 
+#[derive(Deserialize)]
+pub struct CheckRunEvent {
+    pub check_run: CheckRun,
+}
+
+#[derive(Deserialize)]
+pub struct CheckRun {
+    pub details_url: String,
+    pub app: App,
+}
+
+#[derive(Deserialize)]
+pub struct App {
+    pub id: u64,
+}
+
 impl Client {
     pub fn new() -> Result<Client> {
         let user = env::var("GITHUB_USER")
