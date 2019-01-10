@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use hyper::Uri;
 
-static TRAVIS_TARGET_RUST_PREFIX: &str = "https://travis-ci.org/rust-lang/rust/";
+static TRAVIS_TARGET_RUST_PREFIX: &str = "https://travis-ci.com/rust-lang/rust/";
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
@@ -64,7 +64,7 @@ impl Worker {
             QueueItem::GitHubStatus(ev) => {
                 if !(ev.target_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
                         && ev.context.contains("travis")) {
-                    info!("Ignoring non-travis event.");
+                    info!("Ignoring non-travis event (ctx: {:?}, url: {:?}).", ev.context, ev.target_url);
                     return Ok(())
                 }
 

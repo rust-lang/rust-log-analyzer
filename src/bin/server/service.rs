@@ -84,6 +84,10 @@ impl RlaService {
                 debug!("Ignoring 'issue_comment' event.");
                 StatusCode::Ok
             }
+            "check_run" => {
+                debug!("Ignoring 'check_run' event: {:?}", String::from_utf8_lossy(body));
+                StatusCode::BadRequest
+            }
             _ => {
                 warn!("Unexpected '{}' event.", event);
                 StatusCode::BadRequest

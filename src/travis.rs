@@ -11,11 +11,11 @@ use std::time::Duration;
 header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 
 /// The URL parse unescapes the %2F required by Travis, so we use the numeric ID.
-const REPO_ID: u64 = 26199;
+const REPO_ID: u64 = 7321874;
 const TIMEOUT_SECS: u64 = 30;
 /// Don't load too many builds at once to avoid timeouts.
 const BUILD_PAGE_LIMIT: u32 = 10;
-static API_BASE: &str = "https://api.travis-ci.org";
+static API_BASE: &str = "https://api.travis-ci.com";
 
 #[derive(Deserialize, Debug)]
 struct Builds {
