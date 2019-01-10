@@ -198,7 +198,7 @@ impl Worker {
         };
 
         self.github.post_comment(repo, pr, &format!(r#"
-{opening} [failed on Travis](https://travis-ci.org/rust-lang/rust/jobs/{job}) ([raw log](https://api.travis-ci.org/v3/job/{job}/log.txt)). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
+{opening} [failed on Travis](https://travis-ci.com/rust-lang/rust/jobs/{job}) ([raw log](https://api.travis-ci.com/v3/job/{job}/log.txt)). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
 
 <details><summary><i>Click to expand the log.</i></summary>
 
