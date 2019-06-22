@@ -1,4 +1,5 @@
-use super::Result;
+use super::{Build, CiPlatform, Job, Outcome};
+use crate::Result;
 use hyper::header;
 use reqwest;
 use std::cmp;
@@ -18,39 +19,98 @@ const BUILD_PAGE_LIMIT: u32 = 10;
 static API_BASE: &str = "https://api.travis-ci.com";
 
 #[derive(Deserialize, Debug)]
+struct Repository {
+    slug: String,
+}
+
+#[derive(Deserialize, Debug)]
 struct Builds {
-    builds: Vec<Build>,
+    builds: Vec<TravisBuild>,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Build {
-    pub branch: Branch,
-    pub commit: Commit,
-    pub pull_request_number: Option<u32>,
-    pub state: JobState,
-    pub jobs: Vec<Job>,
+struct TravisBuild {
+    branch: Branch,
+    commit: Commit,
+    pull_request_number: Option<u32>,
+    state: JobState,
+    jobs: Vec<TravisJob>,
+}
+
+impl Build for TravisBuild {
+    fn pr_number(&self) -> Option<u32> {
+        self.pull_request_number
+    }
+
+    fn branch_name(&self) -> &str {
+        &self.branch.name
+    }
+
+    fn commit_message(&self) -> &str {
+        &self.commit.message
+    }
+
+    fn commit_sha(&self) -> &str {
+        &self.commit.sha
+    }
+
+    fn outcome(&self) -> &dyn Outcome {
+        &self.state
+    }
+
+    fn jobs(&self) -> Vec<&dyn Job> {
+        self.jobs.iter().map(|j| j as &dyn Job).collect()
+    }
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Job {
-    pub id: u64,
-    pub state: JobState,
+struct TravisJob {
+    id: u64,
+    repository: Repository,
+    state: JobState,
+}
+
+impl Job for TravisJob {
+    fn id(&self) -> u64 {
+        self.id
+    }
+
+    fn html_url(&self) -> String {
+        format!(
+            "https://travis-ci.com/{}/jobs/{}",
+            self.repository.slug, self.id
+        )
+    }
+
+    fn log_url(&self) -> String {
+        format!("https://api.travis-ci.com/v3/job/{}/log.txt", self.id)
+    }
+
+    fn outcome(&self) -> &dyn Outcome {
+        &self.state
+    }
+}
+
+impl fmt::Display for TravisJob {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "travis job {}", self.id)
+    }
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Branch {
-    pub name: String,
+struct Branch {
+    name: String,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Commit {
-    pub message: String,
-    pub sha: String,
+struct Commit {
+    message: String,
+    sha: String,
 }
 
 #[derive(Copy, Clone, Deserialize, PartialEq, Eq, Hash, Debug)]
 #[serde(rename_all = "lowercase")]
-pub enum JobState {
+enum JobState {
     Received,
     Queued,
     Created,
@@ -80,12 +140,20 @@ impl fmt::Display for JobState {
     }
 }
 
-impl JobState {
-    pub fn finished(self) -> bool {
-        match self {
+impl Outcome for JobState {
+    fn is_finished(&self) -> bool {
+        match *self {
             JobState::Received | JobState::Queued | JobState::Created | JobState::Started => false,
             _ => true,
         }
+    }
+
+    fn is_passed(&self) -> bool {
+        *self == JobState::Passed
+    }
+
+    fn is_failed(&self) -> bool {
+        *self == JobState::Failed || *self == JobState::Errored
     }
 }
 
@@ -101,7 +169,7 @@ impl Client {
         let mut headers = header::Headers::new();
         headers.set(header::Authorization(format!("token {}", api_key)));
         headers.set(XTravisApiVersion(3));
-        headers.set(header::UserAgent::new(super::USER_AGENT));
+        headers.set(header::UserAgent::new(crate::USER_AGENT));
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -117,21 +185,20 @@ impl Client {
             .get(format!("{}/{}", API_BASE, path).as_str())
             .send()
     }
+}
 
-    pub fn query_builds(&self, query: &str, mut count: u32, mut offset: u32) -> Result<Vec<Build>> {
-        let query = if query.is_empty() {
-            "".to_string()
-        } else {
-            format!("{}&", query)
-        };
-
+impl CiPlatform for Client {
+    fn query_builds(
+        &self,
+        mut count: u32,
+        mut offset: u32,
+        filter: &dyn Fn(&dyn Build) -> bool,
+    ) -> Result<Vec<Box<dyn Build>>> {
         let mut res = vec![];
-
         while count > 0 {
             let mut resp = self.get(&format!(
-                "repo/{}/builds?{}include=build.jobs&limit={}&offset={}",
+                "repo/{}/builds?include=build.jobs&limit={}&offset={}",
                 REPO_ID,
-                query,
                 cmp::min(count, BUILD_PAGE_LIMIT),
                 offset
             ))?;
@@ -139,28 +206,28 @@ impl Client {
                 bail!("Builds query failed: {:?}", resp);
             }
 
-            let builds: Builds = resp.json()?;
-
-            res.extend(builds.builds);
-
-            count = count.saturating_sub(BUILD_PAGE_LIMIT);
-            offset += BUILD_PAGE_LIMIT;
+            for build in resp.json::<Builds>()?.builds.into_iter() {
+                offset += 1;
+                if filter(&build) {
+                    count = count.saturating_sub(1);
+                    res.push(Box::new(build) as Box<dyn Build>);
+                }
+            }
         }
 
         Ok(res)
     }
 
-    pub fn query_build(&self, build_id: u64) -> Result<Build> {
-        let mut resp = self.get(&format!("build/{}?include=build.jobs", build_id))?;
+    fn query_build(&self, id: u64) -> Result<Box<Build>> {
+        let mut resp = self.get(&format!("build/{}?include=build.jobs", id))?;
         if !resp.status().is_success() {
             bail!("Build query failed: {:?}", resp);
         }
-
-        Ok(resp.json()?)
+        Ok(Box::new(resp.json::<TravisBuild>()?))
     }
 
-    pub fn query_log(&self, job: &Job) -> Result<Vec<u8>> {
-        let mut resp = self.get(&format!("job/{}/log.txt", job.id))?;
+    fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>> {
+        let mut resp = self.get(&format!("job/{}/log.txt", job.id()))?;
 
         if !resp.status().is_success() {
             bail!("Downloading log failed: {:?}", resp);

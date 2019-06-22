@@ -111,12 +111,6 @@ enum Cli {
     TravisDl {
         #[structopt(short = "o", long = "output", help = "Log output directory.")]
         output: PathBuf,
-        #[structopt(
-            short = "q",
-            long = "query",
-            help = "Travis /builds filter query parameters."
-        )]
-        query: String,
         #[structopt(short = "c", long = "count", help = "Number of _builds_ to process.")]
         count: u32,
         #[structopt(
@@ -127,12 +121,16 @@ enum Cli {
         )]
         skip: u32,
         #[structopt(
-            short = "j",
-            long = "job-filters",
-            use_delimiter = true,
-            help = "Comma-separated lists of job states to filter by."
+            short = "b",
+            long = "branch",
+            multiple = true,
+            help = "Branches to filter by."
         )]
-        job_filter: Vec<String>,
+        branches: Vec<String>,
+        #[structopt(long = "passed", help = "Only download passed builds and jobs.")]
+        passed: bool,
+        #[structopt(long = "failed", help = "Only download failed builds and jobs.")]
+        failed: bool,
     },
 }
 
@@ -156,10 +154,11 @@ fn main() {
         Cli::ExtractOne { index_file, log } => offline::extract::one(&index_file, &log),
         Cli::TravisDl {
             output,
-            query,
             count,
             skip,
-            job_filter,
-        } => offline::dl::travis(&output, &query, count, skip, &job_filter),
+            branches,
+            passed,
+            failed,
+        } => offline::dl::travis(&output, count, skip, &branches, passed, failed),
     });
 }

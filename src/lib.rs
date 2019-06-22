@@ -26,11 +26,11 @@ extern crate serde;
 extern crate serde_derive;
 extern crate sha1;
 
+pub mod ci;
 pub mod extract;
 pub mod github;
 pub mod index;
 pub mod sanitize;
-pub mod travis;
 
 pub use self::index::Index;
 

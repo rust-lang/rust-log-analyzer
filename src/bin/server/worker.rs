@@ -1,6 +1,7 @@
 use super::QueueItem;
 
 use crate::rla;
+use crate::rla::ci::CiPlatform;
 use hyper::Uri;
 use regex::bytes::Regex;
 use std::path::PathBuf;
@@ -17,7 +18,7 @@ pub struct Worker {
     index: rla::Index,
     extract_config: rla::extract::Config,
     github: rla::github::Client,
-    travis: rla::travis::Client,
+    travis: rla::ci::TravisCI,
     queue: sync::mpsc::Receiver<QueueItem>,
 }
 
@@ -46,7 +47,7 @@ impl Worker {
             index_file,
             extract_config: Default::default(),
             github: rla::github::Client::new()?,
-            travis: rla::travis::Client::new()?,
+            travis: rla::ci::TravisCI::new()?,
             queue,
         })
     }
@@ -85,17 +86,17 @@ impl Worker {
 
                 let build = self.travis.query_build(build_id)?;
 
-                if !build.state.finished() {
+                if !build.outcome().is_finished() {
                     info!("Ignoring in-progress build.");
                     return Ok(());
                 }
 
-                if build.state != rla::travis::JobState::Passed {
-                    self.report_failed(&build)?;
+                if !build.outcome().is_passed() {
+                    self.report_failed(build.as_ref())?;
                 }
 
-                if build.pull_request_number.is_none() && build.branch.name == "auto" {
-                    self.learn(&build)?;
+                if build.pr_number().is_none() && build.branch_name() == "auto" {
+                    self.learn(build.as_ref())?;
                 }
 
                 Ok(())
@@ -125,17 +126,18 @@ impl Worker {
 
                 let build = self.travis.query_build(build_id)?;
 
-                if !build.state.finished() {
+                let outcome = build.outcome();
+                if !outcome.is_finished() {
                     info!("Ignoring in-progress build.");
                     return Ok(());
                 }
 
-                if build.state != rla::travis::JobState::Passed {
-                    self.report_failed(&build)?;
+                if !outcome.is_passed() {
+                    self.report_failed(build.as_ref())?;
                 }
 
-                if build.pull_request_number.is_none() && build.branch.name == "auto" {
-                    self.learn(&build)?;
+                if build.pr_number().is_none() && build.branch_name() == "auto" {
+                    self.learn(build.as_ref())?;
                 }
 
                 Ok(())
@@ -143,13 +145,11 @@ impl Worker {
         }
     }
 
-    fn report_failed(&mut self, build: &rla::travis::Build) -> rla::Result<()> {
+    fn report_failed(&mut self, build: &rla::ci::Build) -> rla::Result<()> {
         debug!("Preparing report...");
 
-        let job = match build.jobs.iter().find(|j| {
-            j.state == rla::travis::JobState::Failed || j.state == rla::travis::JobState::Errored
-        }) {
-            Some(job) => job,
+        let job = match build.jobs().iter().find(|j| j.outcome().is_failed()) {
+            Some(job) => *job,
             None => bail!("No failed job found, cannot report."),
         };
 
@@ -175,16 +175,17 @@ impl Worker {
 
         let extracted = blocks.join("\n---\n");
 
-        let (pr, is_bors) = if let Some(pr) = build.pull_request_number {
+        let (pr, is_bors) = if let Some(pr) = build.pr_number() {
             (pr, false)
         } else {
             static BORS_MERGE_PREFIX: &str = "Auto merge of #";
 
-            if build.commit.message.starts_with(BORS_MERGE_PREFIX) {
-                let s = &build.commit.message[BORS_MERGE_PREFIX.len()..];
+            let commit_message = build.commit_message();
+            if commit_message.starts_with(BORS_MERGE_PREFIX) {
+                let s = &commit_message[BORS_MERGE_PREFIX.len()..];
                 (
                     s[..s.find(' ').ok_or_else(|| {
-                        format_err!("Invalid bors commit message: '{}'", build.commit.message)
+                        format_err!("Invalid bors commit message: '{}'", commit_message)
                     })?]
                         .parse()?,
                     true,
@@ -199,12 +200,12 @@ impl Worker {
 
             let commit_info = self
                 .github
-                .query_commit("rust-lang/rust", &build.commit.sha)?;
+                .query_commit("rust-lang/rust", &build.commit_sha())?;
 
             if !commit_info.commit.message.starts_with("Merge ") {
                 bail!(
                     "Did not recognize commit {} with message '{}', skipping report.",
-                    build.commit.sha,
+                    build.commit_sha(),
                     commit_info.commit.message
                 );
             }
@@ -217,7 +218,7 @@ impl Worker {
                 .ok_or_else(|| {
                     format_err!(
                         "Did not recognize commit {} with message '{}', skipping report.",
-                        build.commit.sha,
+                        build.commit_sha(),
                         commit_info.commit.message
                     )
                 })?;
@@ -247,7 +248,7 @@ impl Worker {
         };
 
         self.github.post_comment(repo, pr, &format!(r#"
-{opening} [failed on Travis](https://travis-ci.com/rust-lang/rust/jobs/{job}) ([raw log](https://api.travis-ci.com/v3/job/{job}/log.txt)). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
+{opening} [failed on Travis]({html_url}) ([raw log]({log_url})). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
 
 <details><summary><i>Click to expand the log.</i></summary>
 
@@ -258,32 +259,31 @@ impl Worker {
 </details><p></p>
 
 [I'm a bot](https://github.com/rust-ops/rust-log-analyzer)! I can only do what humans tell me to, so if this was not helpful or you have suggestions for improvements, please ping or otherwise contact **`@TimNN`**. ([Feature Requests](https://github.com/rust-ops/rust-log-analyzer/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request))
-        "#, opening = opening, job = job.id, log = extracted))?;
+        "#, opening = opening, html_url = job.html_url(), log_url = job.log_url(), log = extracted))?;
 
         Ok(())
     }
 
-    fn learn(&mut self, build: &rla::travis::Build) -> rla::Result<()> {
-        for job in &build.jobs {
-            if job.state != rla::travis::JobState::Passed {
+    fn learn(&mut self, build: &rla::ci::Build) -> rla::Result<()> {
+        for job in &build.jobs() {
+            if !job.outcome().is_passed() {
                 continue;
             }
 
-            debug!("Processing travis job {}...", job.id);
+            debug!("Processing {}...", job);
 
-            match self.travis.query_log(job) {
-                Err(e) => {
-                    warn!(
-                        "Failed to learn from successful travis job {}, download failed: {}",
-                        job.id, e
-                    );
-                    continue;
-                }
+            match self.travis.query_log(*job) {
                 Ok(log) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
                             .learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
                     }
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to learn from successful {}, download failed: {}",
+                        job, e
+                    );
                 }
             }
         }

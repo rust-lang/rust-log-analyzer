@@ -1,5 +1,6 @@
 use crate::offline;
 use crate::rla;
+use crate::rla::ci::CiPlatform;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
@@ -26,49 +27,37 @@ pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<
     Ok(())
 }
 
-pub static TRAVIS_JOB_STATES: &[&str] = &[
-    "received", "queued", "created", "started", "passed", "canceled", "errored", "failed",
-];
-
-pub static TRAVIS_JOB_STATE_VALUES: &[rla::travis::JobState] = &[
-    rla::travis::JobState::Received,
-    rla::travis::JobState::Queued,
-    rla::travis::JobState::Created,
-    rla::travis::JobState::Started,
-    rla::travis::JobState::Passed,
-    rla::travis::JobState::Canceled,
-    rla::travis::JobState::Errored,
-    rla::travis::JobState::Failed,
-];
-
 pub fn travis(
     output: &Path,
-    query: &str,
     count: u32,
     offset: u32,
-    job_filter: &[String],
+    filter_branches: &[String],
+    only_passed: bool,
+    only_failed: bool,
 ) -> rla::Result<()> {
-    let valid_job_states = job_filter
+    let filter_branches = filter_branches
         .iter()
-        .map(|f| TRAVIS_JOB_STATE_VALUES[TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()])
+        .map(|s| s.as_str())
         .collect::<HashSet<_>>();
+    let travis = rla::ci::TravisCI::new()?;
 
-    let travis = rla::travis::Client::new()?;
+    let check_outcome = |outcome: &dyn rla::ci::Outcome| {
+        (!only_passed || outcome.is_passed()) && (!only_failed || outcome.is_failed())
+    };
+    let builds = travis.query_builds(count, offset, &|build| {
+        (filter_branches.is_empty() || filter_branches.contains(build.branch_name()))
+            && check_outcome(build.outcome())
+    })?;
 
-    let builds = travis.query_builds(query, count, offset)?;
-
-    'job_loop: for job in builds.iter().flat_map(|b| &b.jobs) {
-        if !valid_job_states.is_empty() && !valid_job_states.contains(&job.state) {
+    'job_loop: for job in builds.iter().flat_map(|b| b.jobs()) {
+        if !check_outcome(job.outcome()) {
             continue;
         }
 
-        let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id, job.state));
+        let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id(), job.outcome()));
 
         if save_path.is_file() {
-            warn!(
-                "Skipping log for Travis job #{} because the output file exists.",
-                job.id
-            );
+            warn!("Skipping log for {} because the output file exists.", job);
             continue;
         }
 
@@ -77,10 +66,9 @@ pub fn travis(
 
         loop {
             attempt += 1;
-
             info!(
-                "Downloading log for Travis job #{} [Attempt {}/{}]...",
-                job.id, attempt, LOG_DL_MAX_ATTEMPTS
+                "Downloading log for {} [Attempt {}/{}]...",
+                job, attempt, LOG_DL_MAX_ATTEMPTS
             );
 
             match travis.query_log(job) {
