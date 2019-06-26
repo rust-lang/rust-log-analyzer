@@ -7,6 +7,7 @@
 
 extern crate brotli;
 extern crate env_logger;
+#[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate log;
@@ -107,8 +108,10 @@ enum Cli {
         log: PathBuf,
     },
 
-    #[structopt(name = "travis-dl", about = "Download build logs from travis")]
-    TravisDl {
+    #[structopt(name = "dl", about = "Download build logs from the CI platform.")]
+    Dl {
+        #[structopt(long = "ci", help = "CI platform to download from.")]
+        ci: util::CliCiPlatform,
         #[structopt(short = "o", long = "output", help = "Log output directory.")]
         output: PathBuf,
         #[structopt(short = "c", long = "count", help = "Number of _builds_ to process.")]
@@ -152,13 +155,22 @@ fn main() {
             dest,
         } => offline::extract::dir(&index_file, &source, &dest),
         Cli::ExtractOne { index_file, log } => offline::extract::one(&index_file, &log),
-        Cli::TravisDl {
+        Cli::Dl {
+            ci,
             output,
             count,
             skip,
             branches,
             passed,
             failed,
-        } => offline::dl::travis(&output, count, skip, &branches, passed, failed),
+        } => offline::dl::download(
+            ci.get()?.as_ref(),
+            &output,
+            count,
+            skip,
+            &branches,
+            passed,
+            failed,
+        ),
     });
 }

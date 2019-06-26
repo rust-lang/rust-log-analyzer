@@ -64,6 +64,8 @@ struct Cli {
         help = "If enabled, web hooks that cannot be verified are rejected."
     )]
     webhook_verify: bool,
+    #[structopt(long = "ci", help = "CI platform to interact with.")]
+    ci: util::CliCiPlatform,
 }
 
 fn main() {
@@ -76,7 +78,8 @@ fn main() {
 
         let service = Rc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
 
-        let mut worker = server::Worker::new(args.index_file, args.debug_post, queue_recv)?;
+        let mut worker =
+            server::Worker::new(args.index_file, args.debug_post, queue_recv, args.ci.get()?)?;
 
         thread::spawn(move || {
             if let Err(e) = worker.main() {

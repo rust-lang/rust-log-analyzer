@@ -27,7 +27,8 @@ pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<
     Ok(())
 }
 
-pub fn travis(
+pub fn download(
+    ci: &dyn CiPlatform,
     output: &Path,
     count: u32,
     offset: u32,
@@ -39,12 +40,11 @@ pub fn travis(
         .iter()
         .map(|s| s.as_str())
         .collect::<HashSet<_>>();
-    let travis = rla::ci::TravisCI::new()?;
 
     let check_outcome = |outcome: &dyn rla::ci::Outcome| {
         (!only_passed || outcome.is_passed()) && (!only_failed || outcome.is_failed())
     };
-    let builds = travis.query_builds(count, offset, &|build| {
+    let builds = ci.query_builds(count, offset, &|build| {
         (filter_branches.is_empty() || filter_branches.contains(build.branch_name()))
             && check_outcome(build.outcome())
     })?;
@@ -54,8 +54,7 @@ pub fn travis(
             continue;
         }
 
-        let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id(), job.outcome()));
-
+        let save_path = output.join(format!("{}.log.brotli", job.log_file_name()));
         if save_path.is_file() {
             warn!("Skipping log for {} because the output file exists.", job);
             continue;
@@ -71,7 +70,7 @@ pub fn travis(
                 job, attempt, LOG_DL_MAX_ATTEMPTS
             );
 
-            match travis.query_log(job) {
+            match ci.query_log(job) {
                 Ok(d) => {
                     data = d;
                     break;

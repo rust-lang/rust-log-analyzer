@@ -1,16 +1,17 @@
 use super::{Build, CiPlatform, Job, Outcome};
 use crate::Result;
-use hyper::header;
+use hyper::{header, Uri};
 use reqwest;
 use std::cmp;
 use std::env;
 use std::fmt;
 use std::io::Read;
-use std::str;
+use std::str::FromStr;
 use std::time::Duration;
 
 header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 
+const TRAVIS_API_ID: u64 = 67;
 /// The URL parse unescapes the %2F required by Travis, so we use the numeric ID.
 const REPO_ID: u64 = 7_321_874;
 const TIMEOUT_SECS: u64 = 30;
@@ -84,6 +85,10 @@ impl Job for TravisJob {
 
     fn log_url(&self) -> String {
         format!("https://api.travis-ci.com/v3/job/{}/log.txt", self.id)
+    }
+
+    fn log_file_name(&self) -> String {
+        format!("travis-{}-{}", self.id, self.state)
     }
 
     fn outcome(&self) -> &dyn Outcome {
@@ -185,9 +190,33 @@ impl Client {
             .get(format!("{}/{}", API_BASE, path).as_str())
             .send()
     }
+
+    fn extract_build_id(&self, url: &str) -> Option<u64> {
+        Uri::from_str(url)
+            .ok()?
+            .path()
+            .rsplit('/')
+            .next()?
+            .parse()
+            .ok()
+    }
 }
 
 impl CiPlatform for Client {
+    fn build_id_from_github_check(&self, e: &crate::github::CheckRunEvent) -> Option<u64> {
+        if e.check_run.app.id != TRAVIS_API_ID {
+            return None;
+        }
+        self.extract_build_id(&e.check_run.details_url)
+    }
+
+    fn build_id_from_github_status(&self, e: &crate::github::CommitStatusEvent) -> Option<u64> {
+        if !e.context.starts_with("continuous-integration/travis-ci") {
+            return None;
+        }
+        self.extract_build_id(&e.target_url)
+    }
+
     fn query_builds(
         &self,
         mut count: u32,

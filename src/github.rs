@@ -13,6 +13,7 @@ static API_BASE: &str = "https://api.github.com";
 pub struct CommitStatusEvent {
     pub target_url: String,
     pub context: String,
+    pub repository: Repository,
 }
 
 #[derive(Deserialize)]
@@ -47,6 +48,7 @@ struct Comment<'a> {
 #[derive(Deserialize)]
 pub struct CheckRunEvent {
     pub check_run: CheckRun,
+    pub repository: Repository,
 }
 
 #[derive(Deserialize)]
@@ -58,6 +60,11 @@ pub struct CheckRun {
 #[derive(Deserialize)]
 pub struct App {
     pub id: u64,
+}
+
+#[derive(Deserialize)]
+pub struct Repository {
+    pub full_name: String,
 }
 
 impl Client {

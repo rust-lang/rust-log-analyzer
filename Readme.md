@@ -23,16 +23,16 @@ To run commands which access online resources, you have to provide the required 
 
 To initialize a new index file, perform the following steps:
 
-1. Download some successful build logs using the `rla-offline travis-dl` command.
+1. Download some successful build logs using the `rla-offline dl` command.
     * It is recommended that you run in `release` mode.
     * I'm still gathering data, but you should probably have well over 1000 log files (this does not mean over 1000 *builds*, since one builds consists of dozens of jobs)
-    * Example command: `rla-offline travis-dl -c 40 --branch auto --passed -o data/training`
+    * Example command: `rla-offline dl --ci travis -c 40 --branch auto --passed -o data/training`
 2. Train on the downloaded logs using the `rla-offline learn command`.
     * Example command: `rla-offline learn -i demo.idx data/training`
 
 ### Analyzing a specific log
 
-1. Download the log file you want to analyze using either the `rla-offline travis-dl` command or manually from [travis-ci.org](https:/travis-ci.org).
+1. Download the log file you want to analyze using either the `rla-offline dl` command or manually from [travis-ci.org](https:/travis-ci.org).
     * All tools will automatically decompress files ending in `.brotli`, or assume uncompressed data otherwise.
 2. Use the `rla-offline extract-one` command analyze the log file.
     * Example command: `rla-offline extract-one -i demo.idx my-log.txt`
@@ -42,7 +42,7 @@ To initialize a new index file, perform the following steps:
 *Note: This process will / should be integrated as regression tests.*
 
 1. Download, or otherwise curate, a set of log files you want to evaluate against.
-    * Example command: `rla-offline travis-dl -c 50 --failed -o data/failed`
+    * Example command: `rla-offline dl --ci travis -c 50 --failed -o data/failed`
     * *Note: Eventually, a set of test log files will be provided in the repository.*
 2. Use the `rla-offline extract-dir` command to analyze all the log files and write the results to a separate directory.
     * You can (temporarily) check the result directory in to the repository to see diffs.

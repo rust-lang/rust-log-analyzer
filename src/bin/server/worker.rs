@@ -2,15 +2,12 @@ use super::QueueItem;
 
 use crate::rla;
 use crate::rla::ci::CiPlatform;
-use hyper::Uri;
 use regex::bytes::Regex;
 use std::path::PathBuf;
 use std::str;
-use std::str::FromStr;
 use std::sync;
 
-const TRAVIS_APP_ID: u64 = 67;
-static TRAVIS_TARGET_RUST_PREFIX: &str = "https://travis-ci.com/rust-lang/rust/";
+static REPO: &str = "rust-lang/rust";
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
@@ -18,8 +15,8 @@ pub struct Worker {
     index: rla::Index,
     extract_config: rla::extract::Config,
     github: rla::github::Client,
-    travis: rla::ci::TravisCI,
     queue: sync::mpsc::Receiver<QueueItem>,
+    ci: Box<dyn CiPlatform + Send>,
 }
 
 impl Worker {
@@ -27,6 +24,7 @@ impl Worker {
         index_file: PathBuf,
         debug_post: Option<String>,
         queue: sync::mpsc::Receiver<QueueItem>,
+        ci: Box<dyn CiPlatform + Send>,
     ) -> rla::Result<Worker> {
         let debug_post = match debug_post {
             None => None,
@@ -47,8 +45,8 @@ impl Worker {
             index_file,
             extract_config: Default::default(),
             github: rla::github::Client::new()?,
-            travis: rla::ci::TravisCI::new()?,
             queue,
+            ci,
         })
     }
 
@@ -63,86 +61,44 @@ impl Worker {
     }
 
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
-        match item {
-            QueueItem::GitHubStatus(ev) => {
-                if !(ev.target_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
-                    && ev.context.contains("travis"))
-                {
+        let build_id = match item {
+            QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
+                Some(id) if ev.repository.full_name == REPO => id,
+                _ => {
                     info!(
-                        "Ignoring non-travis event (ctx: {:?}, url: {:?}).",
+                        "Ignoring invalid event (ctx: {:?}, url: {:?}).",
                         ev.context, ev.target_url
                     );
                     return Ok(());
                 }
-
-                let build_id = Uri::from_str(&ev.target_url)?
-                    .path()
-                    .rsplit('/')
-                    .next()
-                    .ok_or_else(|| format_err!("Invalid event URL."))?
-                    .parse()?;
-
-                info!("Processing Travis build #{}...", build_id);
-
-                let build = self.travis.query_build(build_id)?;
-
-                if !build.outcome().is_finished() {
-                    info!("Ignoring in-progress build.");
-                    return Ok(());
-                }
-
-                if !build.outcome().is_passed() {
-                    self.report_failed(build.as_ref())?;
-                }
-
-                if build.pr_number().is_none() && build.branch_name() == "auto" {
-                    self.learn(build.as_ref())?;
-                }
-
-                Ok(())
-            }
-            QueueItem::GitHubCheckRun(ev) => {
-                if !(ev
-                    .check_run
-                    .details_url
-                    .starts_with(TRAVIS_TARGET_RUST_PREFIX)
-                    && ev.check_run.app.id == TRAVIS_APP_ID)
-                {
+            },
+            QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
+                Some(id) if ev.repository.full_name == REPO => id,
+                _ => {
                     info!(
-                        "Ignoring non-travis event (id: {:?}, url: {:?}).",
+                        "Ignoring invalid event (app id: {:?}, url: {:?}).",
                         ev.check_run.app.id, ev.check_run.details_url
                     );
                     return Ok(());
                 }
+            },
+        };
 
-                let build_id = Uri::from_str(&ev.check_run.details_url)?
-                    .path()
-                    .rsplit('/')
-                    .next()
-                    .ok_or_else(|| format_err!("Invalid event URL."))?
-                    .parse()?;
+        info!("Processing build #{}...", build_id);
 
-                info!("Processing Travis build #{}...", build_id);
-
-                let build = self.travis.query_build(build_id)?;
-
-                let outcome = build.outcome();
-                if !outcome.is_finished() {
-                    info!("Ignoring in-progress build.");
-                    return Ok(());
-                }
-
-                if !outcome.is_passed() {
-                    self.report_failed(build.as_ref())?;
-                }
-
-                if build.pr_number().is_none() && build.branch_name() == "auto" {
-                    self.learn(build.as_ref())?;
-                }
-
-                Ok(())
-            }
+        let build = self.ci.query_build(build_id)?;
+        if !build.outcome().is_finished() {
+            info!("Ignoring in-progress build.");
+            return Ok(());
         }
+        if !build.outcome().is_passed() {
+            self.report_failed(build.as_ref())?;
+        }
+        if build.pr_number().is_none() && build.branch_name() == "auto" {
+            self.learn(build.as_ref())?;
+        }
+
+        Ok(())
     }
 
     fn report_failed(&mut self, build: &rla::ci::Build) -> rla::Result<()> {
@@ -153,7 +109,7 @@ impl Worker {
             None => bail!("No failed job found, cannot report."),
         };
 
-        let log = self.travis.query_log(job)?;
+        let log = self.ci.query_log(job)?;
 
         let lines = rla::sanitize::split_lines(&log)
             .iter()
@@ -248,7 +204,7 @@ impl Worker {
         };
 
         self.github.post_comment(repo, pr, &format!(r#"
-{opening} [failed on Travis]({html_url}) ([raw log]({log_url})). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
+{opening} [failed]({html_url}) ([raw log]({log_url})). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
 
 <details><summary><i>Click to expand the log.</i></summary>
 
@@ -272,7 +228,7 @@ impl Worker {
 
             debug!("Processing {}...", job);
 
-            match self.travis.query_log(*job) {
+            match self.ci.query_log(*job) {
                 Ok(log) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
