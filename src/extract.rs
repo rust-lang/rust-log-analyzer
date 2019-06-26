@@ -19,7 +19,7 @@ static IGNORE_BLOCK_END: &[&str] = &[" removed; done.", "git checkout -qf ", "tr
 
 lazy_static! {
     static ref IGNORE_BLOCK_START_A: AcAutomaton<&'static str> =
-        AcAutomaton::new(IGNORE_BLOCK_START.iter().map(|&s| s));
+        AcAutomaton::new(IGNORE_BLOCK_START.iter().cloned());
 }
 
 lazy_static! {

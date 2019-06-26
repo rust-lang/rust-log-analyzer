@@ -107,7 +107,7 @@ impl<'a> IdIter<'a> {
 impl<'a> Iterator for IdIter<'a> {
     type Item = u32;
 
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy_complexity))]
+    #[allow(clippy::complexity)]
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         self.windows.next().map(|w| {
             0u32 + w[0] as u32

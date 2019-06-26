@@ -1,7 +1,8 @@
 #![deny(unused_must_use)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(collapsible_if, needless_range_loop, useless_let_if_seq)
+#![allow(
+    clippy::collapsible_if,
+    clippy::needless_range_loop,
+    clippy::useless_let_if_seq
 )]
 
 #[macro_use]

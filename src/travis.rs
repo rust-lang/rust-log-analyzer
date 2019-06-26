@@ -11,7 +11,7 @@ use std::time::Duration;
 header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 
 /// The URL parse unescapes the %2F required by Travis, so we use the numeric ID.
-const REPO_ID: u64 = 7321874;
+const REPO_ID: u64 = 7_321_874;
 const TIMEOUT_SECS: u64 = 30;
 /// Don't load too many builds at once to avoid timeouts.
 const BUILD_PAGE_LIMIT: u32 = 10;
@@ -81,8 +81,8 @@ impl fmt::Display for JobState {
 }
 
 impl JobState {
-    pub fn finished(&self) -> bool {
-        match *self {
+    pub fn finished(self) -> bool {
+        match self {
             JobState::Received | JobState::Queued | JobState::Created | JobState::Started => false,
             _ => true,
         }
