@@ -1,10 +1,9 @@
 use super::QueueItem;
 
 use crate::rla;
-use clap;
 use hyper::Uri;
 use regex::bytes::Regex;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str;
 use std::str::FromStr;
 use std::sync;
@@ -24,12 +23,11 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(
-        args: &clap::ArgMatches,
+        index_file: PathBuf,
+        debug_post: Option<String>,
         queue: sync::mpsc::Receiver<QueueItem>,
     ) -> rla::Result<Worker> {
-        let index_file = Path::new(args.value_of_os("index-file").unwrap());
-
-        let debug_post = match args.value_of("debug-post") {
+        let debug_post = match debug_post {
             None => None,
             Some(v) => {
                 let parts = v.splitn(2, '#').collect::<Vec<_>>();
@@ -44,8 +42,8 @@ impl Worker {
 
         Ok(Worker {
             debug_post,
-            index_file: index_file.to_owned(),
-            index: rla::Index::load(index_file)?,
+            index: rla::Index::load(&index_file)?,
+            index_file,
             extract_config: Default::default(),
             github: rla::github::Client::new()?,
             travis: rla::travis::Client::new()?,

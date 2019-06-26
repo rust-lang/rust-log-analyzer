@@ -1,22 +1,19 @@
 use crate::offline;
 use crate::rla;
-use clap;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
 
 const LOG_DL_MAX_ATTEMPTS: u32 = 3;
 
-pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
-    let input = Path::new(args.value_of_os("input").unwrap());
-
+pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<()> {
     let mut data = offline::fs::load_maybe_compressed(input)?;
 
-    if args.is_present("strip-control") {
+    if strip_control {
         data.retain(|&b| b == b'\n' || !b.is_ascii_control());
     }
 
-    if args.is_present("decode-utf8") {
+    if decode_utf8 {
         let stdout = io::stdout();
         stdout
             .lock()
@@ -44,20 +41,17 @@ pub static TRAVIS_JOB_STATE_VALUES: &[rla::travis::JobState] = &[
     rla::travis::JobState::Failed,
 ];
 
-pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
-    let count: u32 = args.value_of("count").unwrap().parse()?;
-    let offset: u32 = args.value_of("skip").unwrap().parse()?;
-    let output = Path::new(args.value_of_os("output").unwrap());
-    let query = args.value_of("query").unwrap();
-    let valid_job_states = args
-        .values_of("job-filter")
-        .map(|v| {
-            v.map(|f| {
-                TRAVIS_JOB_STATE_VALUES[TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()]
-            })
-            .collect::<HashSet<_>>()
-        })
-        .unwrap_or_else(HashSet::new);
+pub fn travis(
+    output: &Path,
+    query: &str,
+    count: u32,
+    offset: u32,
+    job_filter: &[String],
+) -> rla::Result<()> {
+    let valid_job_states = job_filter
+        .iter()
+        .map(|f| TRAVIS_JOB_STATE_VALUES[TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()])
+        .collect::<HashSet<_>>();
 
     let travis = rla::travis::Client::new()?;
 

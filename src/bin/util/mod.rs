@@ -1,11 +1,10 @@
 use crate::rla;
-use clap;
 use env_logger;
 use log;
 use std::env;
 use std::process;
 
-pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str, f: F) {
+pub fn run<F: FnOnce() -> rla::Result<()>>(f: F) {
     let mut log_builder = env_logger::Builder::new();
 
     if let Ok(s) = env::var("RLA_LOG") {
@@ -20,12 +19,7 @@ pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str,
 
     log_builder.init();
 
-    let app = clap::App::new(app_name)
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about(about);
-
-    log_and_exit_error(|| f(app));
+    log_and_exit_error(|| f());
 }
 
 pub fn log_and_exit_error<F: FnOnce() -> rla::Result<()>>(f: F) {

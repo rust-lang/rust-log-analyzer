@@ -1,23 +1,20 @@
 use crate::offline;
 use crate::rla;
-use clap;
+
 use log;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::Instant;
 use walkdir::{self, WalkDir};
 
-pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
-    let index_file = Path::new(args.value_of_os("index-file").unwrap());
-    let multiplier: u32 = args.value_of("multiplier").unwrap().parse()?;
-    let inputs = args.values_of_os("logs").unwrap();
-
+pub fn learn(index_file: &Path, inputs: &[PathBuf], multiplier: u32) -> rla::Result<()> {
     let mut index = rla::Index::load_or_create(index_file)?;
 
     let progress_every = Duration::from_secs(1);
     let mut last_print = Instant::now();
 
     for (count, input) in inputs
+        .iter()
         .flat_map(|i| WalkDir::new(i).into_iter().filter_entry(not_hidden))
         .enumerate()
     {

@@ -1,7 +1,6 @@
 use super::QueueItem;
 
 use crate::rla;
-use clap;
 use futures::{future, Future, Stream};
 use hyper::server::{Request, Response, Service};
 use hyper::{self, StatusCode};
@@ -21,7 +20,7 @@ pub struct RlaService {
 
 impl RlaService {
     pub fn new(
-        args: &clap::ArgMatches,
+        reject_unverified_webhooks: bool,
         queue: sync::mpsc::Sender<QueueItem>,
     ) -> rla::Result<RlaService> {
         let github_webhook_secret = match env::var("GITHUB_WEBHOOK_SECRET") {
@@ -37,8 +36,6 @@ impl RlaService {
                 Some(s.into_bytes())
             }
         };
-
-        let reject_unverified_webhooks = args.is_present("webhook-verify");
 
         if reject_unverified_webhooks {
             if github_webhook_secret.is_none() {

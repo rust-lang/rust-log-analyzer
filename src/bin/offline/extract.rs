@@ -1,6 +1,6 @@
 use crate::offline;
 use crate::rla;
-use clap;
+
 use log;
 use std::fs;
 use std::io::{self, Write};
@@ -30,11 +30,7 @@ fn load_lines(log: &[u8]) -> Vec<Line> {
         .collect()
 }
 
-pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
-    let index_file = Path::new(args.value_of_os("index-file").unwrap());
-    let src_dir = Path::new(args.value_of_os("source").unwrap());
-    let dst_dir = Path::new(args.value_of_os("destination").unwrap());
-
+pub fn dir(index_file: &Path, src_dir: &Path, dst_dir: &Path) -> rla::Result<()> {
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
 
@@ -51,7 +47,7 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
     let progress_every = Duration::from_secs(1);
     let mut last_print = Instant::now();
 
-    for (count, entry) in walk_non_hidden_children(src_dir).enumerate() {
+    for (count, entry) in walk_non_hidden_children(&src_dir).enumerate() {
         let entry = entry?;
 
         if entry.file_type().is_dir() {
@@ -90,10 +86,7 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
     Ok(())
 }
 
-pub fn one(args: &clap::ArgMatches) -> rla::Result<()> {
-    let index_file = Path::new(args.value_of_os("index-file").unwrap());
-    let log_file = Path::new(args.value_of_os("log").unwrap());
-
+pub fn one(index_file: &Path, log_file: &Path) -> rla::Result<()> {
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
 
