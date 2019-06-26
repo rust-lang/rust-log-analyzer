@@ -1,13 +1,13 @@
 use super::QueueItem;
 
-use clap;
-use regex::bytes::Regex;
 use crate::rla;
-use std::str;
-use std::sync;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use clap;
 use hyper::Uri;
+use regex::bytes::Regex;
+use std::path::{Path, PathBuf};
+use std::str;
+use std::str::FromStr;
+use std::sync;
 
 const TRAVIS_APP_ID: u64 = 67;
 static TRAVIS_TARGET_RUST_PREFIX: &str = "https://travis-ci.com/rust-lang/rust/";
@@ -23,7 +23,10 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new(args: &clap::ArgMatches, queue: sync::mpsc::Receiver<QueueItem>) -> rla::Result<Worker> {
+    pub fn new(
+        args: &clap::ArgMatches,
+        queue: sync::mpsc::Receiver<QueueItem>,
+    ) -> rla::Result<Worker> {
         let index_file = Path::new(args.value_of_os("index-file").unwrap());
 
         let debug_post = match args.value_of("debug-post") {
@@ -64,16 +67,21 @@ impl Worker {
         match item {
             QueueItem::GitHubStatus(ev) => {
                 if !(ev.target_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
-                        && ev.context.contains("travis")) {
-                    info!("Ignoring non-travis event (ctx: {:?}, url: {:?}).", ev.context, ev.target_url);
-                    return Ok(())
+                    && ev.context.contains("travis"))
+                {
+                    info!(
+                        "Ignoring non-travis event (ctx: {:?}, url: {:?}).",
+                        ev.context, ev.target_url
+                    );
+                    return Ok(());
                 }
 
-                let build_id =
-                    Uri::from_str(&ev.target_url)?
-                        .path().rsplit('/')
-                        .next().ok_or_else(|| format_err!("Invalid event URL."))?
-                        .parse()?;
+                let build_id = Uri::from_str(&ev.target_url)?
+                    .path()
+                    .rsplit('/')
+                    .next()
+                    .ok_or_else(|| format_err!("Invalid event URL."))?
+                    .parse()?;
 
                 info!("Processing Travis build #{}...", build_id);
 
@@ -95,17 +103,25 @@ impl Worker {
                 Ok(())
             }
             QueueItem::GitHubCheckRun(ev) => {
-                if !(ev.check_run.details_url.starts_with(TRAVIS_TARGET_RUST_PREFIX)
-                    && ev.check_run.app.id == TRAVIS_APP_ID) {
-                    info!("Ignoring non-travis event (id: {:?}, url: {:?}).", ev.check_run.app.id, ev.check_run.details_url);
-                    return Ok(())
+                if !(ev
+                    .check_run
+                    .details_url
+                    .starts_with(TRAVIS_TARGET_RUST_PREFIX)
+                    && ev.check_run.app.id == TRAVIS_APP_ID)
+                {
+                    info!(
+                        "Ignoring non-travis event (id: {:?}, url: {:?}).",
+                        ev.check_run.app.id, ev.check_run.details_url
+                    );
+                    return Ok(());
                 }
 
-                let build_id =
-                    Uri::from_str(&ev.check_run.details_url)?
-                        .path().rsplit('/')
-                        .next().ok_or_else(|| format_err!("Invalid event URL."))?
-                        .parse()?;
+                let build_id = Uri::from_str(&ev.check_run.details_url)?
+                    .path()
+                    .rsplit('/')
+                    .next()
+                    .ok_or_else(|| format_err!("Invalid event URL."))?
+                    .parse()?;
 
                 info!("Processing Travis build #{}...", build_id);
 
@@ -132,21 +148,32 @@ impl Worker {
     fn report_failed(&mut self, build: &rla::travis::Build) -> rla::Result<()> {
         debug!("Preparing report...");
 
-        let job = match build.jobs.iter().find(|j| j.state == rla::travis::JobState::Failed || j.state == rla::travis::JobState::Errored) {
+        let job = match build.jobs.iter().find(|j| {
+            j.state == rla::travis::JobState::Failed || j.state == rla::travis::JobState::Errored
+        }) {
             Some(job) => job,
             None => bail!("No failed job found, cannot report."),
         };
 
         let log = self.travis.query_log(job)?;
 
-        let lines = rla::sanitize::split_lines(&log).iter()
+        let lines = rla::sanitize::split_lines(&log)
+            .iter()
             .map(|l| rla::index::Sanitized(rla::sanitize::clean(l)))
             .collect::<Vec<_>>();
 
         let blocks = rla::extract::extract(&self.extract_config, &self.index, &lines);
 
-        let blocks = blocks.iter().map(|block|
-            block.iter().map(|line| String::from_utf8_lossy(&line.0).into_owned()).collect::<Vec<_>>().join("\n")).collect::<Vec<_>>();
+        let blocks = blocks
+            .iter()
+            .map(|block| {
+                block
+                    .iter()
+                    .map(|line| String::from_utf8_lossy(&line.0).into_owned())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .collect::<Vec<_>>();
 
         let extracted = blocks.join("\n---\n");
 
@@ -157,7 +184,13 @@ impl Worker {
 
             if build.commit.message.starts_with(BORS_MERGE_PREFIX) {
                 let s = &build.commit.message[BORS_MERGE_PREFIX.len()..];
-                (s[..s.find(' ').ok_or_else(|| format_err!("Invalid bors commit message: '{}'", build.commit.message))?].parse()?, true)
+                (
+                    s[..s.find(' ').ok_or_else(|| {
+                        format_err!("Invalid bors commit message: '{}'", build.commit.message)
+                    })?]
+                        .parse()?,
+                    true,
+                )
             } else {
                 bail!("Could not determine PR number, cannot report.");
             }
@@ -166,15 +199,30 @@ impl Worker {
         if !is_bors {
             let pr_info = self.github.query_pr("rust-lang/rust", pr)?;
 
-            let commit_info = self.github.query_commit("rust-lang/rust", &build.commit.sha)?;
+            let commit_info = self
+                .github
+                .query_commit("rust-lang/rust", &build.commit.sha)?;
 
             if !commit_info.commit.message.starts_with("Merge ") {
-                bail!("Did not recognize commit {} with message '{}', skipping report.", build.commit.sha, commit_info.commit.message);
+                bail!(
+                    "Did not recognize commit {} with message '{}', skipping report.",
+                    build.commit.sha,
+                    commit_info.commit.message
+                );
             }
 
-            let sha = commit_info.commit.message.split(' ').nth(1)
-                .ok_or_else(|| format_err!("Did not recognize commit {} with message '{}', skipping report.",
-                            build.commit.sha, commit_info.commit.message))?;
+            let sha = commit_info
+                .commit
+                .message
+                .split(' ')
+                .nth(1)
+                .ok_or_else(|| {
+                    format_err!(
+                        "Did not recognize commit {} with message '{}', skipping report.",
+                        build.commit.sha,
+                        commit_info.commit.message
+                    )
+                })?;
 
             debug!("Extracted head commit sha: '{}'", sha);
 
@@ -186,7 +234,10 @@ impl Worker {
 
         let (repo, pr) = match self.debug_post {
             Some((ref repo, pr_override)) => {
-                warn!("Would post to 'rust-lang/rust#{}', debug override to '{}#{}'", pr, repo, pr_override);
+                warn!(
+                    "Would post to 'rust-lang/rust#{}', debug override to '{}#{}'",
+                    pr, repo, pr_override
+                );
                 (repo.as_ref(), pr_override)
             }
             None => ("rust-lang/rust", pr),
@@ -224,13 +275,16 @@ impl Worker {
 
             match self.travis.query_log(job) {
                 Err(e) => {
-                    warn!("Failed to learn from successful travis job {}, download failed: {}",
-                          job.id, e);
+                    warn!(
+                        "Failed to learn from successful travis job {}, download failed: {}",
+                        job.id, e
+                    );
                     continue;
                 }
                 Ok(log) => {
                     for line in rla::sanitize::split_lines(&log) {
-                        self.index.learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
+                        self.index
+                            .learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
                     }
                 }
             }
@@ -248,7 +302,7 @@ fn extract_job_name<I: rla::index::IndexData>(lines: &[I]) -> Option<&str> {
     }
 
     for line in lines {
-        if let Some (m) = JOB_NAME_PATTERN.captures(line.sanitized()) {
+        if let Some(m) = JOB_NAME_PATTERN.captures(line.sanitized()) {
             return str::from_utf8(m.get(1).unwrap().as_bytes()).ok();
         }
     }

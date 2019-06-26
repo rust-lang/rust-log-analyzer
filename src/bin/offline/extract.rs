@@ -1,13 +1,13 @@
-use clap;
-use log;
 use crate::offline;
 use crate::rla;
+use clap;
+use log;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use walkdir::{self, WalkDir};
-use std::time::Instant;
 use std::time::Duration;
+use std::time::Instant;
+use walkdir::{self, WalkDir};
 
 struct Line<'a> {
     _original: &'a [u8],
@@ -21,10 +21,13 @@ impl<'a> rla::index::IndexData for Line<'a> {
 }
 
 fn load_lines(log: &[u8]) -> Vec<Line> {
-    rla::sanitize::split_lines(log).iter().map(|&line| Line {
-        _original: line,
-        sanitized: rla::sanitize::clean(line)
-    }).collect()
+    rla::sanitize::split_lines(log)
+        .iter()
+        .map(|&line| Line {
+            _original: line,
+            sanitized: rla::sanitize::clean(line),
+        })
+        .collect()
 }
 
 pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
@@ -34,7 +37,6 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
 
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
-
 
     for entry in walk_non_hidden_children(dst_dir) {
         let entry = entry?;
@@ -65,7 +67,12 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
             log::Level::Trace
         };
 
-        log!(level, "Extracting errors from {} [{}/?]...", entry.path().display(), count);
+        log!(
+            level,
+            "Extracting errors from {} [{}/?]...",
+            entry.path().display(),
+            count
+        );
 
         let log = offline::fs::load_maybe_compressed(entry.path())?;
         let lines = load_lines(&log);
@@ -74,7 +81,10 @@ pub fn dir(args: &clap::ArgMatches) -> rla::Result<()> {
         let mut out_name = entry.file_name().to_owned();
         out_name.push(".err");
 
-        write_blocks_to(io::BufWriter::new(fs::File::create(dst_dir.join(out_name))?), &blocks)?;
+        write_blocks_to(
+            io::BufWriter::new(fs::File::create(dst_dir.join(out_name))?),
+            &blocks,
+        )?;
     }
 
     Ok(())
@@ -115,10 +125,22 @@ fn write_blocks_to<W: Write>(mut w: W, blocks: &[Vec<&Line>]) -> rla::Result<()>
     Ok(())
 }
 
-fn walk_non_hidden_children(root: &Path) -> Box<Iterator<Item=walkdir::Result<walkdir::DirEntry>>> {
+fn walk_non_hidden_children(
+    root: &Path,
+) -> Box<Iterator<Item = walkdir::Result<walkdir::DirEntry>>> {
     fn not_hidden(entry: &walkdir::DirEntry) -> bool {
-        !entry.file_name().to_str().map(|s| s.starts_with('.')).unwrap_or(false)
+        !entry
+            .file_name()
+            .to_str()
+            .map(|s| s.starts_with('.'))
+            .unwrap_or(false)
     }
 
-    Box::new(WalkDir::new(root).min_depth(1).max_depth(1).into_iter().filter_entry(not_hidden))
+    Box::new(
+        WalkDir::new(root)
+            .min_depth(1)
+            .max_depth(1)
+            .into_iter()
+            .filter_entry(not_hidden),
+    )
 }

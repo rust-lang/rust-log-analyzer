@@ -87,7 +87,9 @@ pub fn encode<I: IndexData>(data: &I) -> Vec<u8> {
 }
 
 pub fn decode(data: &[u8]) -> Vec<u8> {
-    data.iter().map(|&b| table::ID_ASCII_MAP[b as usize]).collect()
+    data.iter()
+        .map(|&b| table::ID_ASCII_MAP[b as usize])
+        .collect()
 }
 
 struct IdIter<'a> {
@@ -96,7 +98,9 @@ struct IdIter<'a> {
 
 impl<'a> IdIter<'a> {
     fn new(encoded_data: &'a [u8]) -> IdIter<'a> {
-        IdIter { windows: encoded_data.windows(5) }
+        IdIter {
+            windows: encoded_data.windows(5),
+        }
     }
 }
 
@@ -105,11 +109,12 @@ impl<'a> Iterator for IdIter<'a> {
 
     #[cfg_attr(feature = "cargo-clippy", allow(clippy_complexity))]
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        self.windows.next().map(|w| 0u32
-            + w[0] as u32
-            + w[1] as u32 * 64
-            + w[2] as u32 * 64 * 64
-            + w[3] as u32 * 64 * 64 * 64
-            + w[4] as u32 * 64 * 64 * 64 * 64)
+        self.windows.next().map(|w| {
+            0u32 + w[0] as u32
+                + w[1] as u32 * 64
+                + w[2] as u32 * 64 * 64
+                + w[3] as u32 * 64 * 64 * 64
+                + w[4] as u32 * 64 * 64 * 64 * 64
+        })
     }
 }

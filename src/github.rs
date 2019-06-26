@@ -67,7 +67,6 @@ impl Client {
         let token = env::var("GITHUB_TOKEN")
             .map_err(|e| format_err!("Could not read GITHUB_TOKEN: {}", e))?;
 
-
         let mut headers = header::Headers::new();
         headers.set(header::Authorization(header::Basic {
             username: user,
@@ -76,7 +75,8 @@ impl Client {
         headers.set(header::Accept(vec![ACCEPT_VERSION.parse()?]));
         headers.set(header::UserAgent::new(super::USER_AGENT));
 
-        let client = reqwest::Client::builder().default_headers(headers)
+        let client = reqwest::Client::builder()
+            .default_headers(headers)
             .referer(false)
             .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
             .build()?;
@@ -85,7 +85,10 @@ impl Client {
     }
 
     pub fn query_pr(&self, repo: &str, pr_id: u32) -> Result<Pr> {
-        let mut resp = self.internal.get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str()).send()?;
+        let mut resp = self
+            .internal
+            .get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str())
+            .send()?;
 
         if !resp.status().is_success() {
             bail!("Querying PR failed: {:?}", resp);
@@ -95,7 +98,10 @@ impl Client {
     }
 
     pub fn query_commit(&self, repo: &str, sha: &str) -> Result<CommitMeta> {
-        let mut resp = self.internal.get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str()).send()?;
+        let mut resp = self
+            .internal
+            .get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str())
+            .send()?;
 
         if !resp.status().is_success() {
             bail!("Querying commit failed: {:?}", resp);
@@ -105,7 +111,9 @@ impl Client {
     }
 
     pub fn post_comment(&self, repo: &str, issue_id: u32, comment: &str) -> Result<()> {
-        let resp = self.internal.post(format!("{}/repos/{}/issues/{}/comments", API_BASE, repo, issue_id).as_str())
+        let resp = self
+            .internal
+            .post(format!("{}/repos/{}/issues/{}/comments", API_BASE, repo, issue_id).as_str())
             .json(&Comment { body: comment })
             .send()?;
         if !resp.status().is_success() {

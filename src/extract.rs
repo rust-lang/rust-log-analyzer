@@ -1,5 +1,5 @@
-use aho_corasick::{Automaton, AcAutomaton};
 use crate::index::{Index, IndexData};
+use aho_corasick::{AcAutomaton, Automaton};
 use std::iter;
 use std::mem;
 
@@ -15,18 +15,18 @@ static IGNORE_BLOCK_START: &[&str] = &[
 ];
 
 /// See `IGNORE_BLOCK_START`.
-static IGNORE_BLOCK_END: &[&str] = &[
-    " removed; done.",
-    "git checkout -qf ",
-    "travis_time:end:",
-];
+static IGNORE_BLOCK_END: &[&str] = &[" removed; done.", "git checkout -qf ", "travis_time:end:"];
 
 lazy_static! {
-    static ref IGNORE_BLOCK_START_A: AcAutomaton<&'static str> = AcAutomaton::new(IGNORE_BLOCK_START.iter().map(|&s| s));
+    static ref IGNORE_BLOCK_START_A: AcAutomaton<&'static str> =
+        AcAutomaton::new(IGNORE_BLOCK_START.iter().map(|&s| s));
 }
 
 lazy_static! {
-    static ref IGNORE_BLOCK_END_A: Vec<AcAutomaton<&'static str>> = IGNORE_BLOCK_END.iter().map(|&s| AcAutomaton::new(iter::once(s))).collect();
+    static ref IGNORE_BLOCK_END_A: Vec<AcAutomaton<&'static str>> = IGNORE_BLOCK_END
+        .iter()
+        .map(|&s| AcAutomaton::new(iter::once(s)))
+        .collect();
 }
 
 pub struct Config {
@@ -52,7 +52,8 @@ impl Default for Config {
 }
 
 pub fn score<I: IndexData>(config: &Config, index: &Index, line: &I) -> u32 {
-    index.scores(line)
+    index
+        .scores(line)
         .filter(|&val| val <= config.unique_5gram_max_index)
         .map(|val| config.unique_5gram_max_index - val)
         .sum()
@@ -71,13 +72,20 @@ struct Line<'i, I: IndexData + 'i> {
     line: &'i I,
 }
 
-pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i [I]) -> Vec<Vec<&'i I>> {
+pub fn extract<'i, I: IndexData + 'i>(
+    config: &Config,
+    index: &Index,
+    lines: &'i [I],
+) -> Vec<Vec<&'i I>> {
     assert!(config.context_lines < config.block_merge_distance);
 
-    let lines: Vec<Line<_>> = lines.iter().map(|line| Line {
-        line,
-        score: score(config, index, line),
-    }).collect();
+    let lines: Vec<Line<_>> = lines
+        .iter()
+        .map(|line| Line {
+            line,
+            score: score(config, index, line),
+        })
+        .collect();
 
     let mut i = 0;
     let mut state = State::SearchingSectionStart;
@@ -157,7 +165,7 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
                     start_printing = section_start.saturating_sub(config.context_lines);
                 }
 
-                for j in start_printing .. i {
+                for j in start_printing..i {
                     active_block.push(lines[j].line);
                 }
 
@@ -202,7 +210,9 @@ pub fn extract<'i, I: IndexData + 'i>(config: &Config, index: &Index, lines: &'i
     }
 
     blocks.retain(|block| !block.is_empty());
-    blocks.iter_mut().for_each(|block| block.truncate(config.block_max_lines));
+    blocks
+        .iter_mut()
+        .for_each(|block| block.truncate(config.block_max_lines));
 
     blocks
 }

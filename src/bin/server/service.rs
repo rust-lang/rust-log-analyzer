@@ -1,13 +1,13 @@
 use super::QueueItem;
 
+use crate::rla;
 use clap;
 use futures::{future, Future, Stream};
-use hyper::{self, StatusCode};
 use hyper::server::{Request, Response, Service};
-use crate::rla;
+use hyper::{self, StatusCode};
 use serde_json;
-use std::sync;
 use std::env;
+use std::sync;
 
 header! { (XGitHubEvent, "X-GitHub-Event") => [String] }
 header! { (XHubSignature, "X-Hub-Signature") => [String] }
@@ -20,17 +20,22 @@ pub struct RlaService {
 }
 
 impl RlaService {
-    pub fn new(args: &clap::ArgMatches, queue: sync::mpsc::Sender<QueueItem>) -> rla::Result<RlaService> {
+    pub fn new(
+        args: &clap::ArgMatches,
+        queue: sync::mpsc::Sender<QueueItem>,
+    ) -> rla::Result<RlaService> {
         let github_webhook_secret = match env::var("GITHUB_WEBHOOK_SECRET") {
             Err(env::VarError::NotPresent) => None,
-            Err(env::VarError::NotUnicode(_)) => bail!("GITHUB_WEBHOOK_SECRET contained non-UTF-8 data."),
+            Err(env::VarError::NotUnicode(_)) => {
+                bail!("GITHUB_WEBHOOK_SECRET contained non-UTF-8 data.")
+            }
             Ok(s) => {
                 if !s.bytes().all(|b| b.is_ascii_alphanumeric()) {
                     bail!("Only alphanumeric ASCII characters are allowed in GITHUB_WEBHOOK_SECRET at this time.");
                 }
 
                 Some(s.into_bytes())
-            },
+            }
         };
 
         let reject_unverified_webhooks = args.is_present("webhook-verify");
@@ -50,7 +55,9 @@ impl RlaService {
 
     fn handle_webhook(&self, event: &str, headers: &hyper::Headers, body: &[u8]) -> StatusCode {
         if let Some(ref secret) = self.github_webhook_secret {
-            let sig = headers.get::<XHubSignature>().map(|&XHubSignature(ref sig)| sig.as_ref());
+            let sig = headers
+                .get::<XHubSignature>()
+                .map(|&XHubSignature(ref sig)| sig.as_ref());
 
             if let Err(e) = rla::github::verify_webhook_signature(secret, sig, body) {
                 if self.reject_unverified_webhooks {
@@ -114,12 +121,12 @@ impl Service for RlaService {
     type Response = Response;
     type Error = hyper::Error;
 
-    type Future = Box<Future<Item=Self::Response, Error=hyper::Error>>;
+    type Future = Box<Future<Item = Self::Response, Error = hyper::Error>>;
 
     fn call(&self, req: Request) -> Self::Future {
         let (method, uri, _version, headers, body) = req.deconstruct();
 
-        let handler: Box<Future<Item=StatusCode, Error=hyper::Error> + 'static> =
+        let handler: Box<Future<Item = StatusCode, Error = hyper::Error> + 'static> =
             if let Some(XGitHubEvent(ev)) = headers.get().cloned() {
                 if method != hyper::Method::Post {
                     warn!("Unexpected web hook method '{}'.", method);

@@ -5,7 +5,10 @@ pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
         static ref LINE_BREAK: Regex = Regex::new("[\\r\\n]").unwrap();
     }
 
-    LINE_BREAK.split(data).filter(|line| !line.iter().all(|b| b.is_ascii_whitespace())).collect()
+    LINE_BREAK
+        .split(data)
+        .filter(|line| !line.iter().all(|b| b.is_ascii_whitespace()))
+        .collect()
 }
 
 /// Cleans up the given `data`:
@@ -31,5 +34,7 @@ pub fn clean(data: &[u8]) -> Vec<u8> {
 
     let data = ANSI_ESCAPES.replace_all(data, b"".as_ref());
     let data = UNICODE_WHITESPACE.replace_all(&data, b" ".as_ref());
-    UNICODE_CONTROL.replace_all(&data, b"".as_ref()).into_owned()
+    UNICODE_CONTROL
+        .replace_all(&data, b"".as_ref())
+        .into_owned()
 }

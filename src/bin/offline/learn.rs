@@ -1,7 +1,7 @@
-use clap;
-use log;
 use crate::offline;
 use crate::rla;
+use clap;
+use log;
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
@@ -17,7 +17,10 @@ pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
     let progress_every = Duration::from_secs(1);
     let mut last_print = Instant::now();
 
-    for (count, input) in inputs.flat_map(|i| WalkDir::new(i).into_iter().filter_entry(not_hidden)).enumerate() {
+    for (count, input) in inputs
+        .flat_map(|i| WalkDir::new(i).into_iter().filter_entry(not_hidden))
+        .enumerate()
+    {
         let input = input?;
         if input.file_type().is_dir() {
             continue;
@@ -32,12 +35,20 @@ pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
             log::Level::Trace
         };
 
-        log!(level, "Learning from {} [{}/?]...", input.path().display(), count);
+        log!(
+            level,
+            "Learning from {} [{}/?]...",
+            input.path().display(),
+            count
+        );
 
         let data = offline::fs::load_maybe_compressed(input.path())?;
 
         for line in rla::sanitize::split_lines(&data) {
-            index.learn(&rla::index::Sanitized(rla::sanitize::clean(line)), multiplier);
+            index.learn(
+                &rla::index::Sanitized(rla::sanitize::clean(line)),
+                multiplier,
+            );
         }
     }
 
@@ -47,5 +58,9 @@ pub fn learn(args: &clap::ArgMatches) -> rla::Result<()> {
 }
 
 fn not_hidden(entry: &walkdir::DirEntry) -> bool {
-    !entry.file_name().to_str().map(|s| s.starts_with('.')).unwrap_or(false)
+    !entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with('.'))
+        .unwrap_or(false)
 }

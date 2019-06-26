@@ -1,5 +1,8 @@
 #![deny(unused_must_use)]
-#![cfg_attr(feature = "cargo-clippy", allow(collapsible_if, needless_range_loop, useless_let_if_seq))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(collapsible_if, needless_range_loop, useless_let_if_seq)
+)]
 
 extern crate aho_corasick;
 extern crate atomicwrites;

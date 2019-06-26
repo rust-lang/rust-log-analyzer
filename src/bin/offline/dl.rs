@@ -1,6 +1,6 @@
-use clap;
 use crate::offline;
 use crate::rla;
+use clap;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
@@ -18,7 +18,9 @@ pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
 
     if args.is_present("decode-utf8") {
         let stdout = io::stdout();
-        stdout.lock().write_all(String::from_utf8_lossy(&data).as_bytes())?;
+        stdout
+            .lock()
+            .write_all(String::from_utf8_lossy(&data).as_bytes())?;
     } else {
         let stdout = io::stdout();
         stdout.lock().write_all(&data)?;
@@ -28,14 +30,7 @@ pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
 }
 
 pub static TRAVIS_JOB_STATES: &[&str] = &[
-    "received",
-    "queued",
-    "created",
-    "started",
-    "passed",
-    "canceled",
-    "errored",
-    "failed",
+    "received", "queued", "created", "started", "passed", "canceled", "errored", "failed",
 ];
 
 pub static TRAVIS_JOB_STATE_VALUES: &[rla::travis::JobState] = &[
@@ -54,19 +49,21 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
     let offset: u32 = args.value_of("skip").unwrap().parse()?;
     let output = Path::new(args.value_of_os("output").unwrap());
     let query = args.value_of("query").unwrap();
-    let valid_job_states = args.values_of("job-filter")
-        .map(|v| v
-                .map(|f| TRAVIS_JOB_STATE_VALUES[
-                    TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()])
-                .collect::<HashSet<_>>())
+    let valid_job_states = args
+        .values_of("job-filter")
+        .map(|v| {
+            v.map(|f| {
+                TRAVIS_JOB_STATE_VALUES[TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()]
+            })
+            .collect::<HashSet<_>>()
+        })
         .unwrap_or_else(HashSet::new);
 
     let travis = rla::travis::Client::new()?;
 
     let builds = travis.query_builds(query, count, offset)?;
 
-    'job_loop:
-    for job in builds.iter().flat_map(|b| &b.jobs) {
+    'job_loop: for job in builds.iter().flat_map(|b| &b.jobs) {
         if !valid_job_states.is_empty() && !valid_job_states.contains(&job.state) {
             continue;
         }
@@ -74,7 +71,10 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
         let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id, job.state));
 
         if save_path.is_file() {
-            warn!("Skipping log for Travis job #{} because the output file exists.", job.id);
+            warn!(
+                "Skipping log for Travis job #{} because the output file exists.",
+                job.id
+            );
             continue;
         }
 
@@ -84,8 +84,10 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
         loop {
             attempt += 1;
 
-            info!("Downloading log for Travis job #{} [Attempt {}/{}]...",
-                  job.id, attempt, LOG_DL_MAX_ATTEMPTS);
+            info!(
+                "Downloading log for Travis job #{} [Attempt {}/{}]...",
+                job.id, attempt, LOG_DL_MAX_ATTEMPTS
+            );
 
             match travis.query_log(job) {
                 Ok(d) => {

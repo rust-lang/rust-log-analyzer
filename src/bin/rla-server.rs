@@ -1,5 +1,8 @@
 #![deny(unused_must_use)]
-#![cfg_attr(feature = "cargo-clippy", allow(collapsible_if, needless_range_loop, useless_let_if_seq))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(collapsible_if, needless_range_loop, useless_let_if_seq)
+)]
 
 #[macro_use]
 extern crate clap;
@@ -18,10 +21,10 @@ extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
 use clap::Arg;
-use std::sync;
-use std::rc::Rc;
-use std::thread;
 use std::process;
+use std::rc::Rc;
+use std::sync;
+use std::thread;
 
 mod server;
 mod util;
@@ -41,7 +44,12 @@ fn main() {
             .arg(Arg::from_usage("--webhook-verify 'If enabled, web hooks that cannot be verified are rejected.'"))
             .get_matches();
 
-        let addr = format!("{}:{}", matches.value_of("bind").unwrap(), matches.value_of("port").unwrap()).parse()?;
+        let addr = format!(
+            "{}:{}",
+            matches.value_of("bind").unwrap(),
+            matches.value_of("port").unwrap()
+        )
+        .parse()?;
 
         let (queue_send, queue_recv) = sync::mpsc::channel();
 
@@ -60,9 +68,7 @@ fn main() {
             process::exit(0);
         });
 
-        let server = hyper::server::Http::new().bind(&addr, move || {
-           Ok(service.clone())
-        })?;
+        let server = hyper::server::Http::new().bind(&addr, move || Ok(service.clone()))?;
 
         server.run()?;
 

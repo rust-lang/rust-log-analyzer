@@ -1,7 +1,7 @@
+use crate::rla;
 use clap;
 use env_logger;
 use log;
-use crate::rla;
 use std::env;
 use std::process;
 

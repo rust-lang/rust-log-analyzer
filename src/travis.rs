@@ -83,10 +83,7 @@ impl fmt::Display for JobState {
 impl JobState {
     pub fn finished(&self) -> bool {
         match *self {
-            JobState::Received |
-            JobState::Queued |
-            JobState::Created |
-            JobState::Started => false,
+            JobState::Received | JobState::Queued | JobState::Created | JobState::Started => false,
             _ => true,
         }
     }
@@ -106,7 +103,8 @@ impl Client {
         headers.set(XTravisApiVersion(3));
         headers.set(header::UserAgent::new(super::USER_AGENT));
 
-        let client = reqwest::Client::builder().default_headers(headers)
+        let client = reqwest::Client::builder()
+            .default_headers(headers)
             .referer(false)
             .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
             .build()?;
@@ -115,7 +113,9 @@ impl Client {
     }
 
     fn get(&self, path: &str) -> reqwest::Result<reqwest::Response> {
-        self.internal.get(format!("{}/{}", API_BASE, path).as_str()).send()
+        self.internal
+            .get(format!("{}/{}", API_BASE, path).as_str())
+            .send()
     }
 
     pub fn query_builds(&self, query: &str, mut count: u32, mut offset: u32) -> Result<Vec<Build>> {
@@ -128,9 +128,13 @@ impl Client {
         let mut res = vec![];
 
         while count > 0 {
-            let mut resp =
-                self.get(&format!("repo/{}/builds?{}include=build.jobs&limit={}&offset={}",
-                                  REPO_ID, query, cmp::min(count, BUILD_PAGE_LIMIT), offset))?;
+            let mut resp = self.get(&format!(
+                "repo/{}/builds?{}include=build.jobs&limit={}&offset={}",
+                REPO_ID,
+                query,
+                cmp::min(count, BUILD_PAGE_LIMIT),
+                offset
+            ))?;
             if !resp.status().is_success() {
                 bail!("Builds query failed: {:?}", resp);
             }
