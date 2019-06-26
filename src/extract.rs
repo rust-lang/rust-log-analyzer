@@ -1,5 +1,5 @@
 use aho_corasick::{Automaton, AcAutomaton};
-use index::{Index, IndexData};
+use crate::index::{Index, IndexData};
 use std::iter;
 use std::mem;
 

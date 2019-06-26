@@ -1,6 +1,6 @@
 use clap;
-use offline;
-use rla;
+use crate::offline;
+use crate::rla;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;

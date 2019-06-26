@@ -1,7 +1,7 @@
 use clap;
 use log;
-use offline;
-use rla;
+use crate::offline;
+use crate::rla;
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;

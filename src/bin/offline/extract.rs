@@ -1,7 +1,7 @@
 use clap;
 use log;
-use offline;
-use rla;
+use crate::offline;
+use crate::rla;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;

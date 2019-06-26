@@ -3,6 +3,7 @@ name = "rust-log-analyzer"
 version = "0.1.0"
 authors = ["Rust Project Developers"]
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 aho-corasick = "0.6"

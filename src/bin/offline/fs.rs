@@ -1,5 +1,5 @@
 use brotli;
-use rla;
+use crate::rla;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;

@@ -2,7 +2,7 @@ use super::QueueItem;
 
 use clap;
 use regex::bytes::Regex;
-use rla;
+use crate::rla;
 use std::str;
 use std::sync;
 use std::path::{Path, PathBuf};

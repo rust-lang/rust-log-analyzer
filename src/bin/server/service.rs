@@ -4,7 +4,7 @@ use clap;
 use futures::{future, Future, Stream};
 use hyper::{self, StatusCode};
 use hyper::server::{Request, Response, Service};
-use rla;
+use crate::rla;
 use serde_json;
 use std::sync;
 use std::env;

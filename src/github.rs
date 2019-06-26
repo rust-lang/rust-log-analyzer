@@ -117,7 +117,6 @@ impl Client {
 }
 
 pub fn verify_webhook_signature(secret: &[u8], signature: Option<&str>, body: &[u8]) -> Result<()> {
-    use hex;
     use hmac::{Hmac, Mac};
     use sha1::Sha1;
 
