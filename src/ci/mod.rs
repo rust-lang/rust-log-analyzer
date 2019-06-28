@@ -13,7 +13,6 @@ pub trait Outcome {
 pub trait Build {
     fn pr_number(&self) -> Option<u32>;
     fn branch_name(&self) -> &str;
-    fn commit_message(&self) -> &str;
     fn commit_sha(&self) -> &str;
     fn outcome(&self) -> &dyn Outcome;
     fn jobs(&self) -> Vec<&dyn Job>;

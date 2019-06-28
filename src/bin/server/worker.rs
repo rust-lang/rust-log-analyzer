@@ -131,12 +131,16 @@ impl Worker {
 
         let extracted = blocks.join("\n---\n");
 
+        let commit_info = self
+            .github
+            .query_commit("rust-lang/rust", &build.commit_sha())?;
+        let commit_message = commit_info.commit.message;
+
         let (pr, is_bors) = if let Some(pr) = build.pr_number() {
             (pr, false)
         } else {
             static BORS_MERGE_PREFIX: &str = "Auto merge of #";
 
-            let commit_message = build.commit_message();
             if commit_message.starts_with(BORS_MERGE_PREFIX) {
                 let s = &commit_message[BORS_MERGE_PREFIX.len()..];
                 (
@@ -154,28 +158,22 @@ impl Worker {
         if !is_bors {
             let pr_info = self.github.query_pr("rust-lang/rust", pr)?;
 
-            let commit_info = self
-                .github
-                .query_commit("rust-lang/rust", &build.commit_sha())?;
-
-            if !commit_info.commit.message.starts_with("Merge ") {
+            if !commit_message.starts_with("Merge ") {
                 bail!(
                     "Did not recognize commit {} with message '{}', skipping report.",
                     build.commit_sha(),
-                    commit_info.commit.message
+                    commit_message
                 );
             }
 
-            let sha = commit_info
-                .commit
-                .message
+            let sha = commit_message
                 .split(' ')
                 .nth(1)
                 .ok_or_else(|| {
                     format_err!(
                         "Did not recognize commit {} with message '{}', skipping report.",
                         build.commit_sha(),
-                        commit_info.commit.message
+                        commit_message
                     )
                 })?;
 

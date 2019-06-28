@@ -47,10 +47,6 @@ impl Build for TravisBuild {
         &self.branch.name
     }
 
-    fn commit_message(&self) -> &str {
-        &self.commit.message
-    }
-
     fn commit_sha(&self) -> &str {
         &self.commit.sha
     }
@@ -109,7 +105,6 @@ struct Branch {
 
 #[derive(Deserialize, Debug)]
 struct Commit {
-    message: String,
     sha: String,
 }
 
