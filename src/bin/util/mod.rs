@@ -1,17 +1,26 @@
 use crate::rla;
 use env_logger;
+use failure::ResultExt;
 use log;
 use std::env;
 use std::process;
 
+static REPO: &str = "rust-lang/rust";
+
 pub(crate) enum CliCiPlatform {
     Travis,
+    Azure,
 }
 
 impl CliCiPlatform {
     pub(crate) fn get(&self) -> rla::Result<Box<dyn rla::ci::CiPlatform + Send>> {
         Ok(match self {
             CliCiPlatform::Travis => Box::new(rla::ci::TravisCI::new()?),
+            CliCiPlatform::Azure => {
+                let token = std::env::var("AZURE_DEVOPS_TOKEN")
+                    .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
+                Box::new(rla::ci::AzurePipelines::new(REPO, &token))
+            }
         })
     }
 }
@@ -22,6 +31,7 @@ impl std::str::FromStr for CliCiPlatform {
     fn from_str(input: &str) -> rla::Result<Self> {
         Ok(match input {
             "travis" => CliCiPlatform::Travis,
+            "azure" => CliCiPlatform::Azure,
             other => bail!("unknown CI platform: {}", other),
         })
     }

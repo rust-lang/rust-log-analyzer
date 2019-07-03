@@ -166,16 +166,13 @@ impl Worker {
                 );
             }
 
-            let sha = commit_message
-                .split(' ')
-                .nth(1)
-                .ok_or_else(|| {
-                    format_err!(
-                        "Did not recognize commit {} with message '{}', skipping report.",
-                        build.commit_sha(),
-                        commit_message
-                    )
-                })?;
+            let sha = commit_message.split(' ').nth(1).ok_or_else(|| {
+                format_err!(
+                    "Did not recognize commit {} with message '{}', skipping report.",
+                    build.commit_sha(),
+                    commit_message
+                )
+            })?;
 
             debug!("Extracted head commit sha: '{}'", sha);
 

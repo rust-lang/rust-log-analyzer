@@ -1,5 +1,7 @@
+mod azure;
 mod travis;
 
+pub use azure::Client as AzurePipelines;
 pub use travis::Client as TravisCI;
 
 use crate::Result;
