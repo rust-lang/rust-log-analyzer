@@ -1,7 +1,10 @@
+#![allow(unused)]
 use crate::ci::{Build, CiPlatform, Job, Outcome};
 use crate::Result;
-use reqwest::{Client as ReqwestClient, Method, Response};
+use failure::ResultExt;
+use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
 use std::fmt;
+use std::io::Read;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +14,9 @@ enum BuildResult {
     None,
     PartiallySucceeded,
     Succeeded,
+    Skipped,
+    Abandoned,
+    SucceededWithIssues,
 }
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
@@ -28,12 +34,13 @@ enum BuildStatus {
 #[derive(Debug, Deserialize)]
 struct BuildOutcome {
     result: Option<BuildResult>,
-    status: BuildStatus,
+    status: Option<BuildStatus>,
 }
 
 impl Outcome for BuildOutcome {
     fn is_finished(&self) -> bool {
-        self.status == BuildStatus::Completed
+        // TimelineRecord of type Job does not have a status
+        self.status == Some(BuildStatus::Completed) || self.status.is_none()
     }
 
     fn is_passed(&self) -> bool {
@@ -54,26 +61,45 @@ struct TimelineLog {
 struct TimelineRecord {
     #[serde(rename = "type")]
     type_: String,
-    log: TimelineLog,
+    id: String,
+    name: String,
+    log: Option<TimelineLog>,
     #[serde(flatten)]
     outcome: BuildOutcome,
+    #[serde(skip, default)]
+    build: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct TaskReference {
+    id: String,
+    name: String,
+    version: String,
+}
+
+impl TimelineRecord {
+    fn log(&self) -> &TimelineLog {
+        self.log.as_ref().unwrap_or_else(|| {
+            panic!("log field = None for {:?}", self);
+        })
+    }
 }
 
 impl Job for TimelineRecord {
-    fn id(&self) -> u64 {
-        unreachable!();
+    fn id(&self) -> String {
+        self.id.clone()
     }
 
     fn html_url(&self) -> String {
-        unreachable!();
+        self.log.as_ref().expect("log url").url.clone()
     }
 
     fn log_url(&self) -> String {
-        self.log.url.clone()
+        self.log.as_ref().expect("log url").url.clone()
     }
 
     fn log_file_name(&self) -> String {
-        unreachable!();
+        format!("azure-{}-{}", self.id(), self.build)
     }
 
     fn outcome(&self) -> &dyn Outcome {
@@ -83,7 +109,11 @@ impl Job for TimelineRecord {
 
 impl fmt::Display for TimelineRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "job TODO of build TODO")
+        write!(
+            f,
+            "job {} of build {} (outcome={:?})",
+            self.name, self.build, self.outcome
+        )
     }
 }
 
@@ -108,6 +138,8 @@ struct Link {
 #[derive(Debug, Deserialize)]
 struct AzureBuildLinks {
     timeline: Link,
+    #[allow(unused)]
+    web: Link,
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,6 +151,7 @@ struct AzureBuildData {
     trigger_info: TriggerInfo,
     source_branch: String,
     source_version: String,
+    build_number: String,
     #[serde(flatten)]
     outcome: BuildOutcome,
 }
@@ -130,15 +163,23 @@ struct AzureBuild {
 }
 
 impl AzureBuild {
-    fn new(client: &Client, data: AzureBuildData) -> Result<Self> {
-        let timeline: Timeline = client
+    fn new(client: &Client, data: AzureBuildData) -> Result<Option<Self>> {
+        let mut resp = client
             .req(Method::GET, &data.links.timeline.href)?
-            .error_for_status()?
-            .json()?;
-        Ok(AzureBuild {
+            .error_for_status()?;
+        // this means that the build didn't parse from the yaml,
+        // or at least that's the one case we've hit so far
+        if resp.status() == StatusCode::NO_CONTENT {
+            return Ok(None);
+        }
+        let mut timeline: Timeline = resp.json().with_context(|_| format!("{:?}", resp))?;
+        for record in &mut timeline.records {
+            record.build = data.id;
+        }
+        Ok(Some(AzureBuild {
             data,
             timeline: timeline.records,
-        })
+        }))
     }
 }
 
@@ -174,6 +215,10 @@ impl Build for AzureBuild {
         self.timeline
             .iter()
             .filter(|record| record.type_ == "Job")
+            // Azure does not properly publish logs for canceled builds. These builds are the ones
+            // that cancelbot killed manually, vs. the "failed" builds, so we don't care too much
+            // about them for now, and just ignore them here
+            .filter(|record| record.outcome.result != Some(BuildResult::Canceled))
             .map(|job| job as &dyn Job)
             .collect()
     }
@@ -205,16 +250,29 @@ impl Client {
             .http
             .request(
                 method,
-                &format!("https://dev.azure.com/{}/_apis/{}", self.repo, url),
+                &if url.starts_with("https://") {
+                    url.to_owned()
+                } else {
+                    format!("https://dev.azure.com/{}/_apis/{}", self.repo, url)
+                },
             )
             .basic_auth("", Some(self.token.clone()))
             .send()?)
     }
 }
 
+const AZURE_API_ID: u64 = 9426;
+
 impl CiPlatform for Client {
     fn build_id_from_github_check(&self, e: &crate::github::CheckRunEvent) -> Option<u64> {
-        unimplemented!();
+        if e.check_run.app.id != AZURE_API_ID {
+            return None;
+        }
+        e.check_run
+            .external_id
+            .split('|')
+            .nth(1)
+            .and_then(|id| id.parse().ok())
     }
 
     fn build_id_from_github_status(&self, e: &crate::github::CommitStatusEvent) -> Option<u64> {
@@ -227,23 +285,58 @@ impl CiPlatform for Client {
         offset: u32,
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>> {
-        let builds: AzureBuilds = self
-            .req(Method::GET, "build/builds?api-version=5.0")?
-            .error_for_status()?
-            .json()?;
+        let resp = self.req(
+            Method::GET,
+            &format!("build/builds?api-version=5.0&$top={}", count),
+        )?;
+        let mut resp = resp.error_for_status()?;
+        let builds: AzureBuilds = resp.json()?;
+        let mut ret = Vec::new();
         for build in builds.value.into_iter() {
-            let build = AzureBuild::new(&self, build)?;
-            println!("{:?} {}", build.pr_number(), build.branch_name());
+            if build.outcome.status == Some(BuildStatus::InProgress) {
+                continue;
+            }
+            if let Some(build) = AzureBuild::new(&self, build)? {
+                println!(
+                    "id={} pr={:?} branch_name={}, commit={}, status={:?}",
+                    build.data.id,
+                    build.pr_number(),
+                    build.branch_name(),
+                    build.data.source_version,
+                    build.data.outcome,
+                );
+                if filter(&build) {
+                    ret.push(Box::new(build) as Box<dyn Build>);
+                }
+            }
         }
 
-        unreachable!();
+        eprintln!("pushed {:?}", ret.len());
+
+        Ok(ret)
     }
 
     fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
-        unimplemented!();
+        let resp = self.req(Method::GET, &format!("build/builds/{}?api-version=5.0", id))?;
+        let mut resp = resp.error_for_status()?;
+        let data: AzureBuildData = resp.json()?;
+        if let Some(build) = AzureBuild::new(&self, data)? {
+            Ok(Box::new(build))
+        } else {
+            Err(failure::err_msg("no build results"))
+        }
     }
 
     fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>> {
-        unimplemented!();
+        let mut resp = self.req(Method::GET, &job.html_url())?;
+
+        if !resp.status().is_success() {
+            bail!("Downloading log failed: {:?}", resp);
+        }
+
+        let mut bytes: Vec<u8> = vec![];
+        resp.read_to_end(&mut bytes)?;
+
+        Ok(bytes)
     }
 }

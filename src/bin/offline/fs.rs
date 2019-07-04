@@ -1,5 +1,6 @@
 use crate::rla;
 use brotli;
+use failure::ResultExt;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -12,7 +13,7 @@ const BROTLI_LGWIN: u32 = 22;
 
 pub fn save_compressed(out: &Path, data: &[u8]) -> rla::Result<()> {
     let mut writer = brotli::CompressorWriter::new(
-        fs::File::create(out)?,
+        fs::File::create(out).with_context(|_| format!("save_compressed: {:?}", out.to_owned()))?,
         BROTLI_BUFFER,
         BROTLI_QUALITY,
         BROTLI_LGWIN,

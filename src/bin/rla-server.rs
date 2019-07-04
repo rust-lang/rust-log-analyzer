@@ -69,6 +69,7 @@ struct Cli {
 }
 
 fn main() {
+    dotenv::dotenv().ok();
     util::run(|| {
         let args = Cli::from_args();
 

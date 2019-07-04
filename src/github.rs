@@ -54,6 +54,7 @@ pub struct CheckRunEvent {
 
 #[derive(Deserialize)]
 pub struct CheckRun {
+    pub external_id: String,
     pub details_url: String,
     pub app: App,
 }

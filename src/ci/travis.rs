@@ -69,8 +69,8 @@ struct TravisJob {
 }
 
 impl Job for TravisJob {
-    fn id(&self) -> u64 {
-        self.id
+    fn id(&self) -> String {
+        self.id.to_string()
     }
 
     fn html_url(&self) -> String {
@@ -252,7 +252,7 @@ impl CiPlatform for Client {
         Ok(res)
     }
 
-    fn query_build(&self, id: u64) -> Result<Box<Build>> {
+    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
         let mut resp = self.get(&format!("build/{}?include=build.jobs", id))?;
         if !resp.status().is_success() {
             bail!("Build query failed: {:?}", resp);

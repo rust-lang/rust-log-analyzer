@@ -21,7 +21,7 @@ pub trait Build {
 }
 
 pub trait Job: std::fmt::Display {
-    fn id(&self) -> u64;
+    fn id(&self) -> String;
     fn html_url(&self) -> String;
     fn log_url(&self) -> String;
     fn log_file_name(&self) -> String;
