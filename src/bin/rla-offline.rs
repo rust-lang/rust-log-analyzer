@@ -138,6 +138,7 @@ enum Cli {
 }
 
 fn main() {
+    dotenv::dotenv().ok();
     util::run(|| match Cli::from_args() {
         Cli::Cat {
             strip_control,

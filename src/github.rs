@@ -37,6 +37,7 @@ pub struct Commit {
 }
 
 pub struct Client {
+    auth: (String, String),
     internal: reqwest::Client,
 }
 
@@ -74,13 +75,15 @@ impl Client {
         let token = env::var("GITHUB_TOKEN")
             .map_err(|e| format_err!("Could not read GITHUB_TOKEN: {}", e))?;
 
-        let mut headers = header::Headers::new();
-        headers.set(header::Authorization(header::Basic {
-            username: user,
-            password: Some(token),
-        }));
-        headers.set(header::Accept(vec![ACCEPT_VERSION.parse()?]));
-        headers.set(header::UserAgent::new(super::USER_AGENT));
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::ACCEPT,
+            header::HeaderValue::from_static(ACCEPT_VERSION),
+        );
+        headers.insert(
+            header::USER_AGENT,
+            header::HeaderValue::from_static(super::USER_AGENT),
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -88,13 +91,17 @@ impl Client {
             .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
             .build()?;
 
-        Ok(Client { internal: client })
+        Ok(Client {
+            internal: client,
+            auth: (user, token),
+        })
     }
 
     pub fn query_pr(&self, repo: &str, pr_id: u32) -> Result<Pr> {
         let mut resp = self
             .internal
             .get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str())
+            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .send()?;
 
         if !resp.status().is_success() {
@@ -108,6 +115,7 @@ impl Client {
         let mut resp = self
             .internal
             .get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str())
+            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .send()?;
 
         if !resp.status().is_success() {
@@ -121,6 +129,7 @@ impl Client {
         let resp = self
             .internal
             .post(format!("{}/repos/{}/issues/{}/comments", API_BASE, repo, issue_id).as_str())
+            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .json(&Comment { body: comment })
             .send()?;
         if !resp.status().is_success() {

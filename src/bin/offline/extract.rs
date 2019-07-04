@@ -120,7 +120,7 @@ fn write_blocks_to<W: Write>(mut w: W, blocks: &[Vec<&Line>]) -> rla::Result<()>
 
 fn walk_non_hidden_children(
     root: &Path,
-) -> Box<Iterator<Item = walkdir::Result<walkdir::DirEntry>>> {
+) -> Box<dyn Iterator<Item = walkdir::Result<walkdir::DirEntry>>> {
     fn not_hidden(entry: &walkdir::DirEntry) -> bool {
         !entry
             .file_name()

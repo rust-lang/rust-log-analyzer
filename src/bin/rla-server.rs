@@ -9,19 +9,19 @@ extern crate env_logger;
 #[macro_use]
 extern crate failure;
 extern crate futures;
-#[macro_use]
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate crossbeam;
 extern crate regex;
 extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
+use hyper::rt::Future;
 use std::process;
-use std::rc::Rc;
-use std::sync;
+use std::sync::Arc;
 use std::thread;
 use structopt::StructOpt;
 
@@ -74,9 +74,9 @@ fn main() {
 
         let addr = std::net::SocketAddr::new(args.bind, args.port);
 
-        let (queue_send, queue_recv) = sync::mpsc::channel();
+        let (queue_send, queue_recv) = crossbeam::channel::unbounded();
 
-        let service = Rc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
+        let service = Arc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
 
         let mut worker =
             server::Worker::new(args.index_file, args.debug_post, queue_recv, args.ci.get()?)?;
@@ -92,9 +92,14 @@ fn main() {
             process::exit(0);
         });
 
-        let server = hyper::server::Http::new().bind(&addr, move || Ok(service.clone()))?;
+        let server = hyper::server::Server::bind(&addr).serve(move || {
+            let s = service.clone();
+            hyper::service::service_fn(move |req| s.call(req))
+        });
 
-        server.run()?;
+        hyper::rt::run(server.map_err(|e| {
+            error!("server error: {}", e);
+        }));
 
         Ok(())
     });

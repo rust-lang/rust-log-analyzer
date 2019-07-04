@@ -13,7 +13,6 @@ extern crate failure;
 extern crate fnv;
 extern crate hex;
 extern crate hmac;
-#[macro_use]
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;

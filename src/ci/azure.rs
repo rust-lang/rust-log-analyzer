@@ -1,9 +1,6 @@
 use crate::ci::{Build, CiPlatform, Job, Outcome};
 use crate::Result;
-use reqwest::{
-    header::{Authorization, Basic},
-    Client as ReqwestClient, Method, Response,
-};
+use reqwest::{Client as ReqwestClient, Method, Response};
 use std::fmt;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
@@ -135,7 +132,7 @@ struct AzureBuild {
 impl AzureBuild {
     fn new(client: &Client, data: AzureBuildData) -> Result<Self> {
         let timeline: Timeline = client
-            .req(Method::Get, &data.links.timeline.href)?
+            .req(Method::GET, &data.links.timeline.href)?
             .error_for_status()?
             .json()?;
         Ok(AzureBuild {
@@ -210,10 +207,7 @@ impl Client {
                 method,
                 &format!("https://dev.azure.com/{}/_apis/{}", self.repo, url),
             )
-            .header(Authorization(Basic {
-                username: String::new(),
-                password: Some(self.token.clone()),
-            }))
+            .basic_auth("", Some(self.token.clone()))
             .send()?)
     }
 }
@@ -234,7 +228,7 @@ impl CiPlatform for Client {
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>> {
         let builds: AzureBuilds = self
-            .req(Method::Get, "build/builds?api-version=5.0")?
+            .req(Method::GET, "build/builds?api-version=5.0")?
             .error_for_status()?
             .json()?;
         for build in builds.value.into_iter() {

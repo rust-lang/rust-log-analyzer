@@ -5,7 +5,6 @@ use crate::rla::ci::CiPlatform;
 use regex::bytes::Regex;
 use std::path::PathBuf;
 use std::str;
-use std::sync;
 
 static REPO: &str = "rust-lang/rust";
 
@@ -15,7 +14,7 @@ pub struct Worker {
     index: rla::Index,
     extract_config: rla::extract::Config,
     github: rla::github::Client,
-    queue: sync::mpsc::Receiver<QueueItem>,
+    queue: crossbeam::channel::Receiver<QueueItem>,
     ci: Box<dyn CiPlatform + Send>,
 }
 
@@ -23,7 +22,7 @@ impl Worker {
     pub fn new(
         index_file: PathBuf,
         debug_post: Option<String>,
-        queue: sync::mpsc::Receiver<QueueItem>,
+        queue: crossbeam::channel::Receiver<QueueItem>,
         ci: Box<dyn CiPlatform + Send>,
     ) -> rla::Result<Worker> {
         let debug_post = match debug_post {
@@ -101,7 +100,7 @@ impl Worker {
         Ok(())
     }
 
-    fn report_failed(&mut self, build: &rla::ci::Build) -> rla::Result<()> {
+    fn report_failed(&mut self, build: &dyn rla::ci::Build) -> rla::Result<()> {
         debug!("Preparing report...");
 
         let job = match build.jobs().iter().find(|j| j.outcome().is_failed()) {
@@ -215,7 +214,7 @@ impl Worker {
         Ok(())
     }
 
-    fn learn(&mut self, build: &rla::ci::Build) -> rla::Result<()> {
+    fn learn(&mut self, build: &dyn rla::ci::Build) -> rla::Result<()> {
         for job in &build.jobs() {
             if !job.outcome().is_passed() {
                 continue;

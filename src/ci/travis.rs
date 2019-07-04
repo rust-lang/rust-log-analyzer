@@ -1,6 +1,9 @@
 use super::{Build, CiPlatform, Job, Outcome};
 use crate::Result;
-use hyper::{header, Uri};
+use hyper::{
+    header::{self, HeaderValue},
+    Uri,
+};
 use reqwest;
 use std::cmp;
 use std::env;
@@ -8,8 +11,6 @@ use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
-
-header! { (XTravisApiVersion, "Travis-API-Version") => [u8] }
 
 const TRAVIS_API_ID: u64 = 67;
 /// The URL parse unescapes the %2F required by Travis, so we use the numeric ID.
@@ -166,10 +167,19 @@ impl Client {
         let api_key = env::var("TRAVIS_API_KEY")
             .map_err(|e| format_err!("Could not read TRAVIS_API_KEY: {}", e))?;
 
-        let mut headers = header::Headers::new();
-        headers.set(header::Authorization(format!("token {}", api_key)));
-        headers.set(XTravisApiVersion(3));
-        headers.set(header::UserAgent::new(crate::USER_AGENT));
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_str(&format!("token {}", api_key)).unwrap(),
+        );
+        headers.insert(
+            header::HeaderName::from_static("Travis-API-Version"),
+            3.into(),
+        );
+        headers.insert(
+            header::USER_AGENT,
+            HeaderValue::from_static(crate::USER_AGENT),
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
