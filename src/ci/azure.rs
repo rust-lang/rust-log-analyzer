@@ -91,7 +91,10 @@ impl Job for TimelineRecord {
     }
 
     fn html_url(&self) -> String {
-        self.log.as_ref().expect("log url").url.clone()
+        format!(
+        "https://dev.azure.com/rust-lang/rust/_build/results?buildId={build}&view=logs&jobId={job}",
+        build = self.build, job = self.id
+        )
     }
 
     fn log_url(&self) -> String {
@@ -328,7 +331,7 @@ impl CiPlatform for Client {
     }
 
     fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>> {
-        let mut resp = self.req(Method::GET, &job.html_url())?;
+        let mut resp = self.req(Method::GET, &job.log_url())?;
 
         if !resp.status().is_success() {
             bail!("Downloading log failed: {:?}", resp);
