@@ -50,4 +50,4 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 COPY --from=build /tmp/source/target/release/rla-offline /usr/local/bin/
 COPY --from=build /tmp/source/target/release/rla-server /usr/local/bin/
 
-CMD rla-server --port 80 --index-file /opt/rla/index.idx --webhook-verify --ci $CI_PROVIDER
+CMD rla-server --bind 0.0.0.0 --port 80 --index-file /opt/rla/index.idx --webhook-verify --ci $CI_PROVIDER
