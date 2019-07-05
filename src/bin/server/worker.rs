@@ -3,10 +3,28 @@ use super::QueueItem;
 use crate::rla;
 use crate::rla::ci::CiPlatform;
 use regex::bytes::Regex;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::str;
 
 static REPO: &str = "rust-lang/rust";
+
+// We keep track of the last several unique job IDs. This is because
+// Azure sends us a notification for every individual builder's
+// state (around 70 notifications/job as of this time), but we want
+// to only process a given job once.
+//
+// You might ask -- why is this not a HashSet/HashMap? That would
+// also work, but be a little more complicated to remove things
+// from. We would need to keep track of order somehow to remove the
+// oldest job ID. An attempt at such an API was tried in PR #29, but
+// ultimately scrapped as too complicated.
+//
+// We keep few enough elements in this "set" that a Vec isn't too bad.
+//
+// Note: Don't update this number too high, as we O(n) loop through it on every
+// notification from GitHub (twice).
+const KEEP_IDS: usize = 16;
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
@@ -15,6 +33,7 @@ pub struct Worker {
     extract_config: rla::extract::Config,
     github: rla::github::Client,
     queue: crossbeam::channel::Receiver<QueueItem>,
+    seen: VecDeque<u64>,
     ci: Box<dyn CiPlatform + Send>,
 }
 
@@ -44,6 +63,7 @@ impl Worker {
             index_file,
             extract_config: Default::default(),
             github: rla::github::Client::new()?,
+            seen: VecDeque::new(),
             queue,
             ci,
         })
@@ -84,6 +104,15 @@ impl Worker {
         };
 
         info!("Processing build #{}...", build_id);
+
+        if self.seen.contains(&build_id) {
+            info!("Ignore recently seen build id");
+            return Ok(());
+        }
+        self.seen.push_front(build_id);
+        if self.seen.len() > KEEP_IDS {
+            self.seen.pop_back();
+        }
 
         let build = self.ci.query_build(build_id)?;
         if !build.outcome().is_finished() {
