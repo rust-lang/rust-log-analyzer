@@ -276,7 +276,7 @@ impl CiPlatform for Client {
     }
 
     fn build_id_from_github_status(&self, e: &crate::github::CommitStatusEvent) -> Option<u64> {
-        unimplemented!();
+        None
     }
 
     fn query_builds(
