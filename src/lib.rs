@@ -1,5 +1,9 @@
 #![deny(unused_must_use)]
-#![cfg_attr(feature = "cargo-clippy", allow(collapsible_if, needless_range_loop, useless_let_if_seq))]
+#![allow(
+    clippy::collapsible_if,
+    clippy::needless_range_loop,
+    clippy::useless_let_if_seq
+)]
 
 extern crate aho_corasick;
 extern crate atomicwrites;
@@ -9,7 +13,6 @@ extern crate failure;
 extern crate fnv;
 extern crate hex;
 extern crate hmac;
-#[macro_use]
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
@@ -22,11 +25,11 @@ extern crate serde;
 extern crate serde_derive;
 extern crate sha1;
 
+pub mod ci;
 pub mod extract;
 pub mod github;
 pub mod index;
 pub mod sanitize;
-pub mod travis;
 
 pub use self::index::Index;
 

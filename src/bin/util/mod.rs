@@ -1,11 +1,43 @@
-use clap;
+use crate::rla;
 use env_logger;
+use failure::ResultExt;
 use log;
-use rla;
 use std::env;
 use std::process;
 
-pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str, f: F) {
+static REPO: &str = "rust-lang/rust";
+
+pub(crate) enum CliCiPlatform {
+    Travis,
+    Azure,
+}
+
+impl CliCiPlatform {
+    pub(crate) fn get(&self) -> rla::Result<Box<dyn rla::ci::CiPlatform + Send>> {
+        Ok(match self {
+            CliCiPlatform::Travis => Box::new(rla::ci::TravisCI::new()?),
+            CliCiPlatform::Azure => {
+                let token = std::env::var("AZURE_DEVOPS_TOKEN")
+                    .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
+                Box::new(rla::ci::AzurePipelines::new(REPO, &token))
+            }
+        })
+    }
+}
+
+impl std::str::FromStr for CliCiPlatform {
+    type Err = failure::Error;
+
+    fn from_str(input: &str) -> rla::Result<Self> {
+        Ok(match input {
+            "travis" => CliCiPlatform::Travis,
+            "azure" => CliCiPlatform::Azure,
+            other => bail!("unknown CI platform: {}", other),
+        })
+    }
+}
+
+pub fn run<F: FnOnce() -> rla::Result<()>>(f: F) {
     let mut log_builder = env_logger::Builder::new();
 
     if let Ok(s) = env::var("RLA_LOG") {
@@ -20,12 +52,7 @@ pub fn run<F: FnOnce(clap::App) -> rla::Result<()>>(app_name: &str, about: &str,
 
     log_builder.init();
 
-    let app = clap::App::new(app_name)
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about(about);
-
-    log_and_exit_error(|| f(app));
+    log_and_exit_error(|| f());
 }
 
 pub fn log_and_exit_error<F: FnOnce() -> rla::Result<()>>(f: F) {

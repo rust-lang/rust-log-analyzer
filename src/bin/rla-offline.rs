@@ -1,9 +1,11 @@
 #![deny(unused_must_use)]
-#![cfg_attr(feature = "cargo-clippy", allow(collapsible_if, needless_range_loop, useless_let_if_seq))]
+#![allow(
+    clippy::collapsible_if,
+    clippy::needless_range_loop,
+    clippy::useless_let_if_seq
+)]
 
 extern crate brotli;
-#[macro_use]
-extern crate clap;
 extern crate env_logger;
 #[macro_use]
 extern crate failure;
@@ -12,56 +14,164 @@ extern crate log;
 extern crate rust_log_analyzer as rla;
 extern crate walkdir;
 
-use clap::{Arg, SubCommand};
+use std::path::PathBuf;
+use structopt::StructOpt;
 
 mod offline;
 mod util;
 
-static APP_NAME: &str = "Rust Log Analyzer Offline Tools";
-static ABOUT: &str = "A collection of tools to run the log analyzer without starting a server.";
+#[derive(StructOpt)]
+#[structopt(
+    name = "Rust Log Analyzer Offline Tools",
+    about = "A collection of tools to run the log analyzer without starting a server."
+)]
+enum Cli {
+    #[structopt(
+        name = "cat",
+        about = "Read, and optionally process, a previously downloaded log file, then dump it to stdout."
+    )]
+    Cat {
+        #[structopt(
+            short = "s",
+            long = "strip-control",
+            help = "Removes all ASCII control characters, except newlines, before dumping."
+        )]
+        strip_control: bool,
+        #[structopt(
+            short = "d",
+            long = "decode-utf8",
+            help = "Lossily decode as UTF-8 before dumping."
+        )]
+        decode_utf8: bool,
+        #[structopt(help = "The log file to read and dump.")]
+        input: PathBuf,
+    },
+
+    #[structopt(name = "learn", about = "Learn from previously downloaded log files.")]
+    Learn {
+        #[structopt(
+            short = "i",
+            long = "index-file",
+            help = "The index file to read / write. An existing index file is updated."
+        )]
+        index_file: PathBuf,
+        #[structopt(
+            short = "m",
+            long = "multiplier",
+            default_value = "1",
+            help = "A multiplier to apply when learning."
+        )]
+        multiplier: u32,
+        #[structopt(
+            help = "The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore."
+        )]
+        logs: Vec<PathBuf>,
+    },
+
+    #[structopt(
+        name = "extract-dir",
+        about = "Extract potential error messages from all log files in a directory, writing the results to a different directory."
+    )]
+    ExtractDir {
+        #[structopt(
+            short = "i",
+            long = "index-file",
+            help = "The index file to read / write."
+        )]
+        index_file: PathBuf,
+        #[structopt(
+            short = "s",
+            long = "source",
+            help = "The directory in which to (non-recursively) look for log files. Hidden files are ignored."
+        )]
+        source: PathBuf,
+        #[structopt(
+            short = "d",
+            long = "destination",
+            help = "The directory in which to write the results. All non-hidden will be deleted from the directory."
+        )]
+        dest: PathBuf,
+    },
+
+    #[structopt(
+        name = "extract-one",
+        about = "Extract a potential error message from a single log file."
+    )]
+    ExtractOne {
+        #[structopt(
+            short = "i",
+            long = "index-file",
+            help = "The index file to read / write."
+        )]
+        index_file: PathBuf,
+        #[structopt(help = "The log file to analyze.")]
+        log: PathBuf,
+    },
+
+    #[structopt(name = "dl", about = "Download build logs from the CI platform.")]
+    Dl {
+        #[structopt(long = "ci", help = "CI platform to download from.")]
+        ci: util::CliCiPlatform,
+        #[structopt(short = "o", long = "output", help = "Log output directory.")]
+        output: PathBuf,
+        #[structopt(short = "c", long = "count", help = "Number of _builds_ to process.")]
+        count: u32,
+        #[structopt(
+            short = "s",
+            long = "skip",
+            default_value = "0",
+            help = "Number of _builds_ to skip."
+        )]
+        skip: u32,
+        #[structopt(
+            short = "b",
+            long = "branch",
+            multiple = true,
+            help = "Branches to filter by."
+        )]
+        branches: Vec<String>,
+        #[structopt(long = "passed", help = "Only download passed builds and jobs.")]
+        passed: bool,
+        #[structopt(long = "failed", help = "Only download failed builds and jobs.")]
+        failed: bool,
+    },
+}
 
 fn main() {
-    util::run(APP_NAME, ABOUT, |app| {
-        let matches = app
-            .subcommand(SubCommand::with_name("cat")
-                .about("Read, and optionally process, a previously downloaded log file, then dump it to stdout.")
-                .arg(Arg::from_usage("-s, --strip-control 'Removes all ASCII control characters, except newlines, before dumping.'"))
-                .arg(Arg::from_usage("-d, --decode-utf8 'Lossily decode as UTF-8 before dumping.'"))
-                .arg(Arg::from_usage("<input> 'The log file to read and dump.'")))
-            .subcommand(SubCommand::with_name("learn")
-                .about("Learn from previously downloaded log files.")
-                .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write. An existing index file is updated.'"))
-                .arg(Arg::from_usage("-m, --multiplier=[INT] 'A multiplier to apply when learning.'")
-                    .default_value("1"))
-                .arg(Arg::from_usage("<logs>... 'The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore.'")))
-            .subcommand(SubCommand::with_name("extract-dir")
-                .about("Extract potential error messages from all log files in a directory, writing the results to a different directory.")
-                .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
-                .arg(Arg::from_usage("-s, --source=<DIR> 'The directory in which to (non-recursively) look for log files. Hidden files are ignored.'"))
-                .arg(Arg::from_usage("-d, --destination=<DIR> 'The directory in which to write the results. All non-hidden will be deleted from the directory.'")))
-            .subcommand(SubCommand::with_name("extract-one")
-                .about("Extract a potential error message from a single log file.")
-                .arg(Arg::from_usage("-i, --index-file=<FILE> 'The index file to read / write.'"))
-                .arg(Arg::from_usage("<log> 'The log file to analyze.'")))
-            .subcommand(SubCommand::with_name("travis-dl")
-                .about("Download build logs from travis")
-                .arg(Arg::from_usage("-o, --output=<DIRECTORY> 'Log output directory.'"))
-                .arg(Arg::from_usage("-q, --query=<FILTER> 'Travis /builds filter query parameters.'"))
-                .arg(Arg::from_usage("-c, --count=<INT> 'Number of _builds_ to process.'"))
-                .arg(Arg::from_usage("-s, --skip=[INT] 'Number of builds to skip.'")
-                    .default_value("0"))
-                .arg(Arg::from_usage("-j, --job-filter=[STATES]... 'Comma-separated lists of job states to filter by.")
-                    .use_delimiter(true)
-                    .possible_values(offline::dl::TRAVIS_JOB_STATES)))
-            .get_matches();
-
-        match matches.subcommand() {
-            ("cat", Some(args)) => offline::dl::cat(args),
-            ("extract-dir", Some(args)) => offline::extract::dir(args),
-            ("extract-one", Some(args)) => offline::extract::one(args),
-            ("learn", Some(args)) => offline::learn(args),
-            ("travis-dl", Some(args)) => offline::dl::travis(args),
-            _ => bail!("No command provided. Use --help to list available commands."),
-        }
+    dotenv::dotenv().ok();
+    util::run(|| match Cli::from_args() {
+        Cli::Cat {
+            strip_control,
+            decode_utf8,
+            input,
+        } => offline::dl::cat(&input, strip_control, decode_utf8),
+        Cli::Learn {
+            index_file,
+            multiplier,
+            logs,
+        } => offline::learn(&index_file, &logs, multiplier),
+        Cli::ExtractDir {
+            index_file,
+            source,
+            dest,
+        } => offline::extract::dir(&index_file, &source, &dest),
+        Cli::ExtractOne { index_file, log } => offline::extract::one(&index_file, &log),
+        Cli::Dl {
+            ci,
+            output,
+            count,
+            skip,
+            branches,
+            passed,
+            failed,
+        } => offline::dl::download(
+            ci.get()?.as_ref(),
+            &output,
+            count,
+            skip,
+            &branches,
+            passed,
+            failed,
+        ),
     });
 }

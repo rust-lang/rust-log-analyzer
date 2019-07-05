@@ -1,24 +1,24 @@
-use clap;
-use offline;
-use rla;
+use crate::offline;
+use crate::rla;
+use crate::rla::ci::CiPlatform;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
 
 const LOG_DL_MAX_ATTEMPTS: u32 = 3;
 
-pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
-    let input = Path::new(args.value_of_os("input").unwrap());
-
+pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<()> {
     let mut data = offline::fs::load_maybe_compressed(input)?;
 
-    if args.is_present("strip-control") {
+    if strip_control {
         data.retain(|&b| b == b'\n' || !b.is_ascii_control());
     }
 
-    if args.is_present("decode-utf8") {
+    if decode_utf8 {
         let stdout = io::stdout();
-        stdout.lock().write_all(String::from_utf8_lossy(&data).as_bytes())?;
+        stdout
+            .lock()
+            .write_all(String::from_utf8_lossy(&data).as_bytes())?;
     } else {
         let stdout = io::stdout();
         stdout.lock().write_all(&data)?;
@@ -27,54 +27,36 @@ pub fn cat(args: &clap::ArgMatches) -> rla::Result<()> {
     Ok(())
 }
 
-pub static TRAVIS_JOB_STATES: &[&str] = &[
-    "received",
-    "queued",
-    "created",
-    "started",
-    "passed",
-    "canceled",
-    "errored",
-    "failed",
-];
+pub fn download(
+    ci: &dyn CiPlatform,
+    output: &Path,
+    count: u32,
+    offset: u32,
+    filter_branches: &[String],
+    only_passed: bool,
+    only_failed: bool,
+) -> rla::Result<()> {
+    let filter_branches = filter_branches
+        .iter()
+        .map(|s| s.as_str())
+        .collect::<HashSet<_>>();
 
-pub static TRAVIS_JOB_STATE_VALUES: &[rla::travis::JobState] = &[
-    rla::travis::JobState::Received,
-    rla::travis::JobState::Queued,
-    rla::travis::JobState::Created,
-    rla::travis::JobState::Started,
-    rla::travis::JobState::Passed,
-    rla::travis::JobState::Canceled,
-    rla::travis::JobState::Errored,
-    rla::travis::JobState::Failed,
-];
+    let check_outcome = |outcome: &dyn rla::ci::Outcome| {
+        (!only_passed || outcome.is_passed()) && (!only_failed || outcome.is_failed())
+    };
+    let builds = ci.query_builds(count, offset, &|build| {
+        (filter_branches.is_empty() || filter_branches.contains(build.branch_name()))
+            && check_outcome(build.outcome())
+    })?;
 
-pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
-    let count: u32 = args.value_of("count").unwrap().parse()?;
-    let offset: u32 = args.value_of("skip").unwrap().parse()?;
-    let output = Path::new(args.value_of_os("output").unwrap());
-    let query = args.value_of("query").unwrap();
-    let valid_job_states = args.values_of("job-filter")
-        .map(|v| v
-                .map(|f| TRAVIS_JOB_STATE_VALUES[
-                    TRAVIS_JOB_STATES.iter().position(|&s| s == f).unwrap()])
-                .collect::<HashSet<_>>())
-        .unwrap_or_else(HashSet::new);
-
-    let travis = rla::travis::Client::new()?;
-
-    let builds = travis.query_builds(query, count, offset)?;
-
-    'job_loop:
-    for job in builds.iter().flat_map(|b| &b.jobs) {
-        if !valid_job_states.is_empty() && !valid_job_states.contains(&job.state) {
+    'job_loop: for job in builds.iter().flat_map(|b| b.jobs()) {
+        if !check_outcome(job.outcome()) {
             continue;
         }
 
-        let save_path = output.join(format!("travis.{}.{}.log.brotli", job.id, job.state));
-
+        let save_path = output.join(format!("{}.log.brotli", job.log_file_name()));
         if save_path.is_file() {
-            warn!("Skipping log for Travis job #{} because the output file exists.", job.id);
+            warn!("Skipping log for {} because the output file exists.", job);
             continue;
         }
 
@@ -83,11 +65,12 @@ pub fn travis(args: &clap::ArgMatches) -> rla::Result<()> {
 
         loop {
             attempt += 1;
+            info!(
+                "Downloading log for {} [Attempt {}/{}]...",
+                job, attempt, LOG_DL_MAX_ATTEMPTS
+            );
 
-            info!("Downloading log for Travis job #{} [Attempt {}/{}]...",
-                  job.id, attempt, LOG_DL_MAX_ATTEMPTS);
-
-            match travis.query_log(job) {
+            match ci.query_log(job) {
                 Ok(d) => {
                     data = d;
                     break;

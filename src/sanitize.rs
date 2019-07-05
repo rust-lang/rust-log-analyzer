@@ -5,7 +5,10 @@ pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
         static ref LINE_BREAK: Regex = Regex::new("[\\r\\n]").unwrap();
     }
 
-    LINE_BREAK.split(data).filter(|line| !line.iter().all(|b| b.is_ascii_whitespace())).collect()
+    LINE_BREAK
+        .split(data)
+        .filter(|line| !line.iter().all(|b| b.is_ascii_whitespace()))
+        .collect()
 }
 
 /// Cleans up the given `data`:
@@ -13,7 +16,6 @@ pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
 /// * Removes most ANSI escape codes from the input.
 /// * Replaces all (Unicode) whitespace with single spaces.
 /// * Removes all (Unicode) control characters.
-#[cfg_attr(feature = "cargo-clippy", allow(invalid_regex))] // Waiting on upstream fix
 pub fn clean(data: &[u8]) -> Vec<u8> {
     lazy_static! {
         /// This catches most escape sequences. And I care about neither
@@ -31,5 +33,7 @@ pub fn clean(data: &[u8]) -> Vec<u8> {
 
     let data = ANSI_ESCAPES.replace_all(data, b"".as_ref());
     let data = UNICODE_WHITESPACE.replace_all(&data, b" ".as_ref());
-    UNICODE_CONTROL.replace_all(&data, b"".as_ref()).into_owned()
+    UNICODE_CONTROL
+        .replace_all(&data, b"".as_ref())
+        .into_owned()
 }
