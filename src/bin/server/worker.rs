@@ -117,6 +117,12 @@ impl Worker {
         let build = self.ci.query_build(build_id)?;
         if !build.outcome().is_finished() {
             info!("Ignoring in-progress build.");
+            if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {
+                // Remove ignored builds, as we haven't reported anything for them and the
+                // in-progress status might be misleading (e.g., leading edge of a group of
+                // notifications).
+                self.seen.remove(idx);
+            }
             return Ok(());
         }
         if !build.outcome().is_passed() {
