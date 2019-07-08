@@ -57,6 +57,12 @@ pub fn run<F: FnOnce() -> rla::Result<()>>(f: F) {
 
 pub fn log_and_exit_error<F: FnOnce() -> rla::Result<()>>(f: F) {
     if let Err(e) = f() {
+        if let Some(v) = e.downcast_ref::<std::io::Error>() {
+            if v.kind() == std::io::ErrorKind::BrokenPipe {
+                // exit without printing
+                process::exit(1);
+            }
+        }
         error!("{}\n\n{}", e, e.backtrace());
         process::exit(1);
     }
