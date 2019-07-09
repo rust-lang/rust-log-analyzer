@@ -4,28 +4,25 @@ use std::iter;
 use std::mem;
 
 /// Plaintext patterns which, if found in a line, cause all remaining lines to be ignored until the
-/// corresponding `IGNORE_BLOCK_END` pattern is found in a line.
-static IGNORE_BLOCK_START: &[&str] = &[
+/// corresponding pattern (second tuple element) is found in a line.
+static IGNORE_BLOCK: &[(&str, &str)] = &[
     // apt-get install's actual output is unpredictable
-    "+ apt-get install",
+    ("+ apt-get install", " removed; done."),
     // The network speeds Kb/s / Mb/s mess things up
-    "Cloning into 'rust-lang/rust'...",
+    ("Cloning into 'rust-lang/rust'...", "git checkout -qf "),
     // The output can vary wildly
-    "Disk usage after running",
+    ("Disk usage after running", "travis_time:end:"),
 ];
 
-/// See `IGNORE_BLOCK_START`.
-static IGNORE_BLOCK_END: &[&str] = &[" removed; done.", "git checkout -qf ", "travis_time:end:"];
-
 lazy_static! {
-    static ref IGNORE_BLOCK_START_A: AcAutomaton<&'static str> =
-        AcAutomaton::new(IGNORE_BLOCK_START.iter().cloned());
+    static ref IGNORE_BLOCK_START: AcAutomaton<&'static str> =
+        AcAutomaton::new(IGNORE_BLOCK.iter().map(|x| &x.0).cloned());
 }
 
 lazy_static! {
-    static ref IGNORE_BLOCK_END_A: Vec<AcAutomaton<&'static str>> = IGNORE_BLOCK_END
+    static ref IGNORE_BLOCK_END: Vec<AcAutomaton<&'static str>> = IGNORE_BLOCK
         .iter()
-        .map(|&s| AcAutomaton::new(iter::once(s)))
+        .map(|&s| AcAutomaton::new(iter::once(s.1)))
         .collect();
 }
 
@@ -98,7 +95,7 @@ pub fn extract<'i, I: IndexData + 'i>(
     let mut trailing_context = 0;
 
     while i < lines.len() {
-        if let Some(m) = IGNORE_BLOCK_START_A.find(lines[i].line.sanitized()).next() {
+        if let Some(m) = IGNORE_BLOCK_START.find(lines[i].line.sanitized()).next() {
             trailing_context = 0;
 
             if let State::Printing = state {
@@ -107,7 +104,7 @@ pub fn extract<'i, I: IndexData + 'i>(
                 }
             }
 
-            state = State::Ignoring(&IGNORE_BLOCK_END_A[m.pati]);
+            state = State::Ignoring(&IGNORE_BLOCK_END[m.pati]);
             i += 1;
             continue;
         }
