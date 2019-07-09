@@ -10,8 +10,27 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
     ("+ apt-get install", " removed; done."),
     // The network speeds Kb/s / Mb/s mess things up
     ("Cloning into 'rust-lang/rust'...", "git checkout -qf "),
+    // Skip the clone and unpack section
+    ("remote: Enumerating objects", "Note: checking out"),
     // The output can vary wildly
     ("Disk usage after running", "travis_time:end:"),
+    // Skip environment varialbes
+    (
+        "##[section]Starting: Show environment variables",
+        "##[section]Finishing: Show environment variables",
+    ),
+    // Skip initialization as it involves submodules, which can change often
+    (
+        "dirname /home/vsts/work/1/s/src/ci/init_repo.sh",
+        "##[section]Finishing: Check out submodules",
+    ),
+    // Skip AWS cli installation, it involves network (so changes)
+    (
+        "##[section]Starting: Install awscli",
+        "##[section]Finishing: Install awscli",
+    ),
+    // Cargo downloads crates in unpredictable order
+    ("Downloading crates ...", "Compiling"),
 ];
 
 lazy_static! {
