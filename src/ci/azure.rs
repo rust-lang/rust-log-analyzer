@@ -98,7 +98,11 @@ impl Job for TimelineRecord {
     }
 
     fn log_url(&self) -> String {
-        self.log.as_ref().expect("log url").url.clone()
+        self.log
+            .as_ref()
+            .unwrap_or_else(|| panic!("no log url set for {} in {}", self.id, self.build))
+            .url
+            .clone()
     }
 
     fn log_file_name(&self) -> String {
