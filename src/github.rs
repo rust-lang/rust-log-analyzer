@@ -139,6 +139,10 @@ impl Client {
 
         Ok(())
     }
+
+    pub fn internal(&self) -> &reqwest::Client {
+        &self.internal
+    }
 }
 
 pub fn verify_webhook_signature(secret: &[u8], signature: Option<&str>, body: &[u8]) -> Result<()> {

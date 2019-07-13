@@ -1,6 +1,6 @@
 use crate::offline;
 use crate::rla;
-use crate::rla::ci::CiPlatform;
+use crate::rla::ci::{self, CiPlatform};
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
@@ -36,6 +36,7 @@ pub fn download(
     only_passed: bool,
     only_failed: bool,
 ) -> rla::Result<()> {
+    let client = reqwest::Client::new();
     let filter_branches = filter_branches
         .iter()
         .map(|s| s.as_str())
@@ -70,12 +71,15 @@ pub fn download(
                 job, attempt, LOG_DL_MAX_ATTEMPTS
             );
 
-            match ci.query_log(job) {
-                Ok(d) => {
+            match ci::download_log(job, &client) {
+                Some(Ok(d)) => {
                     data = d;
                     break;
                 }
-                Err(e) => {
+                None => {
+                    warn!("no log for {}", job);
+                }
+                Some(Err(e)) => {
                     if attempt >= LOG_DL_MAX_ATTEMPTS {
                         warn!("Failed to download log, skipping: {}", e);
                         continue 'job_loop;

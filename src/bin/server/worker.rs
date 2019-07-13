@@ -1,7 +1,7 @@
 use super::QueueItem;
 
 use crate::rla;
-use crate::rla::ci::CiPlatform;
+use crate::rla::ci::{self, CiPlatform};
 use regex::bytes::Regex;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -143,7 +143,10 @@ impl Worker {
             None => bail!("No failed job found, cannot report."),
         };
 
-        let log = self.ci.query_log(job)?;
+        let log = match ci::download_log(job, self.github.internal()) {
+            Some(res) => res?,
+            None => bail!("No log for failed job"),
+        };
 
         let lines = rla::sanitize::split_lines(&log)
             .iter()
@@ -244,7 +247,7 @@ impl Worker {
 </details><p></p>
 
 [I'm a bot](https://github.com/rust-ops/rust-log-analyzer)! I can only do what humans tell me to, so if this was not helpful or you have suggestions for improvements, please ping or otherwise contact **`@TimNN`**. ([Feature Requests](https://github.com/rust-ops/rust-log-analyzer/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request))
-        "#, opening = opening, html_url = job.html_url(), log_url = job.log_url(), log = extracted))?;
+        "#, opening = opening, html_url = job.html_url(), log_url = job.log_url().unwrap_or("unknown".into()), log = extracted))?;
 
         Ok(())
     }
@@ -257,14 +260,20 @@ impl Worker {
 
             debug!("Processing {}...", job);
 
-            match self.ci.query_log(*job) {
-                Ok(log) => {
+            match ci::download_log(*job, self.github.internal()) {
+                Some(Ok(log)) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
                             .learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
                     }
                 }
-                Err(e) => {
+                None => {
+                    warn!(
+                        "Failed to learn from successful {}, download failed; no log",
+                        job
+                    );
+                }
+                Some(Err(e)) => {
                     warn!(
                         "Failed to learn from successful {}, download failed: {}",
                         job, e

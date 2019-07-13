@@ -8,7 +8,6 @@ use reqwest;
 use std::cmp;
 use std::env;
 use std::fmt;
-use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -80,8 +79,11 @@ impl Job for TravisJob {
         )
     }
 
-    fn log_url(&self) -> String {
-        format!("https://api.travis-ci.com/v3/job/{}/log.txt", self.id)
+    fn log_url(&self) -> Option<String> {
+        Some(format!(
+            "https://api.travis-ci.com/v3/job/{}/log.txt",
+            self.id
+        ))
     }
 
     fn log_file_name(&self) -> String {
@@ -258,18 +260,5 @@ impl CiPlatform for Client {
             bail!("Build query failed: {:?}", resp);
         }
         Ok(Box::new(resp.json::<TravisBuild>()?))
-    }
-
-    fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>> {
-        let mut resp = self.get(&format!("job/{}/log.txt", job.id()))?;
-
-        if !resp.status().is_success() {
-            bail!("Downloading log failed: {:?}", resp);
-        }
-
-        let mut bytes: Vec<u8> = vec![];
-        resp.read_to_end(&mut bytes)?;
-
-        Ok(bytes)
     }
 }

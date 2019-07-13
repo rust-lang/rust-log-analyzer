@@ -97,12 +97,8 @@ impl Job for TimelineRecord {
         )
     }
 
-    fn log_url(&self) -> String {
-        self.log
-            .as_ref()
-            .unwrap_or_else(|| panic!("no log url set for {} in {}", self.id, self.build))
-            .url
-            .clone()
+    fn log_url(&self) -> Option<String> {
+        self.log.as_ref().map(|l| l.url.clone())
     }
 
     fn log_file_name(&self) -> String {
@@ -332,18 +328,5 @@ impl CiPlatform for Client {
         } else {
             Err(failure::err_msg("no build results"))
         }
-    }
-
-    fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>> {
-        let mut resp = self.req(Method::GET, &job.log_url())?;
-
-        if !resp.status().is_success() {
-            bail!("Downloading log failed: {:?}", resp);
-        }
-
-        let mut bytes: Vec<u8> = vec![];
-        resp.read_to_end(&mut bytes)?;
-
-        Ok(bytes)
     }
 }

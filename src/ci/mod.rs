@@ -1,3 +1,5 @@
+use std::io::Read;
+
 mod azure;
 mod travis;
 
@@ -23,7 +25,7 @@ pub trait Build {
 pub trait Job: std::fmt::Display {
     fn id(&self) -> String;
     fn html_url(&self) -> String;
-    fn log_url(&self) -> String;
+    fn log_url(&self) -> Option<String>; // sometimes we just don't have log URLs
     fn log_file_name(&self) -> String;
     fn outcome(&self) -> &dyn Outcome;
 }
@@ -39,5 +41,29 @@ pub trait CiPlatform {
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>>;
     fn query_build(&self, id: u64) -> Result<Box<dyn Build>>;
-    fn query_log(&self, job: &dyn Job) -> Result<Vec<u8>>;
+}
+
+pub fn download_log(job: &dyn Job, client: &reqwest::Client) -> Option<Result<Vec<u8>>> {
+    if let Some(url) = job.log_url() {
+        let mut resp = match client.get(&url).send() {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e.into())),
+        };
+
+        if !resp.status().is_success() {
+            return Some(Err(failure::err_msg(format!(
+                "Downloading log failed: {:?}",
+                resp
+            ))));
+        }
+
+        let mut bytes: Vec<u8> = vec![];
+        if let Err(err) = resp.read_to_end(&mut bytes) {
+            return Some(Err(err.into()));
+        }
+
+        return Some(Ok(bytes));
+    }
+
+    None
 }
