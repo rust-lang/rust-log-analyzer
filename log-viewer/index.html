@@ -4,6 +4,7 @@
             This page needs JS to query the raw log contents.
         </noscript>
     </body>
+    <script src="ansi_up.js"></script>
     <script>
         async function getAndShow() {
             let url = window.location.hash.slice(1);
@@ -14,9 +15,11 @@
             let log = await fetch(url);
             log = await log.text();
 
-            // replacement regex from https://stackoverflow.com/a/29497680
-            document.body.innerText = log
-                .replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
+            // FIXME: what is this escape code and why are we printing it?
+            log = log.replace(/\u001b\(B/g, "");
+            let ansi_up = new AnsiUp;
+            let html = ansi_up.ansi_to_html(log);
+            document.body.innerHTML = html.replace(/\n/g, "<br>");
         }
 
         getAndShow();
