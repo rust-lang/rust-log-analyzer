@@ -235,6 +235,11 @@ impl Worker {
             None => "Your PR".to_owned(),
         };
 
+        let log_url = job.log_url().unwrap_or("unknown".into());
+        let log_url = format!(
+            "https://rust-lang.github.io/rust-log-analyzer/log-viewer/#{}",
+            log_url
+        );
         self.github.post_comment(repo, pr, &format!(r#"
 {opening} [failed]({html_url}) ([raw log]({log_url})). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
 
@@ -247,7 +252,7 @@ impl Worker {
 </details><p></p>
 
 [I'm a bot](https://github.com/rust-ops/rust-log-analyzer)! I can only do what humans tell me to, so if this was not helpful or you have suggestions for improvements, please ping or otherwise contact **`@TimNN`**. ([Feature Requests](https://github.com/rust-ops/rust-log-analyzer/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request))
-        "#, opening = opening, html_url = job.html_url(), log_url = job.log_url().unwrap_or("unknown".into()), log = extracted))?;
+        "#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted))?;
 
         Ok(())
     }
