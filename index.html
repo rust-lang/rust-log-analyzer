@@ -6,12 +6,17 @@
     </body>
     <script>
         async function getAndShow() {
-        let log = await fetch(window.location.hash.slice(1));
-        log = await log.text();
+            let url = window.location.hash.slice(1);
+            if (url == "") {
+                document.body.innerText = "Expected URL to have hash followed by log URL; empty log URL";
+                return;
+            }
+            let log = await fetch(url);
+            log = await log.text();
 
-        // replacement regex from https://stackoverflow.com/a/29497680
-        document.body.innerText = log
-            .replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
+            // replacement regex from https://stackoverflow.com/a/29497680
+            document.body.innerText = log
+                .replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
         }
 
         getAndShow();
