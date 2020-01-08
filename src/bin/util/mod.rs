@@ -10,6 +10,7 @@ static REPO: &str = "rust-lang/rust";
 pub(crate) enum CliCiPlatform {
     Travis,
     Azure,
+    Actions,
 }
 
 impl CliCiPlatform {
@@ -20,6 +21,11 @@ impl CliCiPlatform {
                 let token = std::env::var("AZURE_DEVOPS_TOKEN")
                     .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
                 Box::new(rla::ci::AzurePipelines::new(REPO, &token))
+            }
+            CliCiPlatform::Actions => {
+                let token = std::env::var("GITHUB_TOKEN")
+                    .with_context(|_| "failed to read GITHUB_TOKEN env var")?;
+                Box::new(rla::ci::GitHubActions::new(REPO, &token))
             }
         })
     }
@@ -32,6 +38,7 @@ impl std::str::FromStr for CliCiPlatform {
         Ok(match input {
             "travis" => CliCiPlatform::Travis,
             "azure" => CliCiPlatform::Azure,
+            "actions" => CliCiPlatform::Actions,
             other => bail!("unknown CI platform: {}", other),
         })
     }

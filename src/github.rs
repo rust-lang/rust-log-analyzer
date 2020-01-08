@@ -57,6 +57,12 @@ pub struct CheckRun {
     pub external_id: String,
     pub details_url: String,
     pub app: App,
+    pub check_suite: CheckSuite,
+}
+
+#[derive(Deserialize)]
+pub struct CheckSuite {
+    pub id: u64,
 }
 
 #[derive(Deserialize)]
