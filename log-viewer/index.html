@@ -1,11 +1,14 @@
 <html>
-    <body style="font-family:Menlo, Consolas, Monaco, Liberation Mono, Lucida Console, monospace;">
+    <body>
         <noscript>
             This page needs JS to query the raw log contents.
         </noscript>
     </body>
     <script src="ansi_up.js"></script>
     <script>
+        let pre = document.createElement("pre");
+        document.body.appendChild(pre);
+
         async function getAndShow() {
             let url = window.location.hash.slice(1);
             if (url == "") {
@@ -18,8 +21,7 @@
             // FIXME: what is this escape code and why are we printing it?
             log = log.replace(/\u001b\(B/g, "");
             let ansi_up = new AnsiUp;
-            let html = ansi_up.ansi_to_html(log);
-            document.body.innerHTML = html.replace(/\n/g, "<br>");
+            pre.innerHTML = ansi_up.ansi_to_html(log);
         }
 
         getAndShow();
