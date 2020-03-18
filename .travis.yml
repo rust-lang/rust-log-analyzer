@@ -5,7 +5,7 @@ env:
   RUSTINFRA_IMAGE_TAG: rust-log-analyzer
   RUSTINFRA_REGISTRY_NAME: rust-log-analyzer
 import:
-  - rust-lang/simpleinfra/travis-configs/docker-to-ecr.yml
+  - rust-lang/simpleinfra:travis-configs/docker-to-ecr.yml
 
 script:
   - cargo test
