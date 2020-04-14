@@ -59,6 +59,7 @@ struct GHABuild {
 }
 
 impl GHABuild {
+    #[allow(clippy::new_ret_no_self)]
     fn new(client: &Client, run: ActionsRun) -> Result<Box<dyn Build>> {
         let mut jobs = Vec::new();
         client.paginated(

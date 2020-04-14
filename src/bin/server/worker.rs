@@ -238,7 +238,7 @@ impl Worker {
             None => "Your PR".to_owned(),
         };
 
-        let log_url = job.log_url().unwrap_or("unknown".into());
+        let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
         let pretty_log_url = format!(
             "https://rust-lang.github.io/rust-log-analyzer/log-viewer/#{}",
             &log_url
