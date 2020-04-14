@@ -1,4 +1,5 @@
 use crate::ci::{Build, CiPlatform, Job, Outcome};
+use crate::github::CheckRun;
 use crate::Result;
 use regex::Regex;
 use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
@@ -227,7 +228,8 @@ impl CiPlatform for Client {
         if e.check_run.app.id != GITHUB_ACTIONS_APP_ID {
             return None;
         }
-        todo!();
+
+        fetch_workflow_run_id_from_check_run(self, &e.check_run).ok()
     }
 
     fn build_id_from_github_status(&self, _e: &crate::github::CommitStatusEvent) -> Option<u64> {
@@ -286,6 +288,35 @@ impl CiPlatform for Client {
             format!("token {}", self.token),
         )
     }
+}
+
+fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Result<u64> {
+    #[derive(Deserialize)]
+    struct ResponseRuns {
+        workflow_runs: Vec<ResponseRun>,
+    }
+
+    #[derive(Deserialize)]
+    struct ResponseRun {
+        id: u64,
+        check_suite_url: String,
+    }
+
+    let runs: ResponseRuns = client
+        .req(
+            Method::GET,
+            &format!("repos/{}/actions/runs?per_page=100", client.repo),
+        )?
+        .error_for_status()?
+        .json()?;
+
+    for workflow_run in &runs.workflow_runs {
+        if workflow_run.check_suite_url == run.check_suite.url {
+            return Ok(workflow_run.id);
+        }
+    }
+
+    bail!("can't find the Workflow Run ID from the Check Run");
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
