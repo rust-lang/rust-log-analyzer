@@ -88,7 +88,9 @@ impl GHABuild {
 
 impl Build for GHABuild {
     fn pr_number(&self) -> Option<u32> {
-        todo!();
+        // GitHub Actions can't fetch it for us, so let's rely on the detection with log variables
+        // (defined in src/log_variables.rs).
+        None
     }
 
     fn branch_name(&self) -> &str {
