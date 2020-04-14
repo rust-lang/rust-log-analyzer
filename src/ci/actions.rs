@@ -1,7 +1,7 @@
 use crate::ci::{Build, CiPlatform, Job, Outcome};
 use crate::Result;
 use regex::Regex;
-use reqwest::{Client as ReqwestClient, Method, Response};
+use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -21,6 +21,7 @@ enum BuildConclusion {
     Cancelled,
     TimedOut,
     ActionRequired,
+    Skipped,
 }
 
 #[derive(Deserialize, Debug)]
@@ -44,7 +45,8 @@ impl Outcome for BuildOutcome {
 }
 
 #[derive(Deserialize)]
-struct CheckSuite {
+struct ActionsRun {
+    id: u64,
     head_branch: String,
     head_sha: String,
     #[serde(flatten)]
@@ -52,26 +54,52 @@ struct CheckSuite {
 }
 
 struct GHABuild {
+    run: ActionsRun,
     jobs: Vec<GHAJob>,
-    check_suite: CheckSuite,
+}
+
+impl GHABuild {
+    fn new(client: &Client, run: ActionsRun) -> Result<Box<dyn Build>> {
+        let mut jobs = Vec::new();
+        client.paginated(
+            Method::GET,
+            &format!("repos/{}/actions/runs/{}/jobs", client.repo, run.id),
+            &mut |mut resp| {
+                #[derive(Deserialize)]
+                struct JobsResult {
+                    jobs: Vec<WorkflowJob>,
+                }
+
+                let mut partial_jobs: JobsResult = resp.json()?;
+                for job in partial_jobs.jobs.drain(..) {
+                    jobs.push(GHAJob {
+                        inner: job,
+                        repo_name: client.repo.clone(),
+                    });
+                }
+                Ok(true)
+            },
+        )?;
+
+        Ok(Box::new(GHABuild { run, jobs }))
+    }
 }
 
 impl Build for GHABuild {
     fn pr_number(&self) -> Option<u32> {
-        // TODO
-        None
+        todo!();
     }
 
     fn branch_name(&self) -> &str {
-        &self.check_suite.head_branch
+        &self.run.head_branch
     }
 
     fn commit_sha(&self) -> &str {
-        &self.check_suite.head_sha
+        &self.run.head_sha
     }
 
     fn outcome(&self) -> &dyn Outcome {
-        &self.check_suite.outcome
+        &self.run.outcome
     }
 
     fn jobs(&self) -> Vec<&dyn Job> {
@@ -80,42 +108,49 @@ impl Build for GHABuild {
 }
 
 #[derive(Deserialize)]
-struct CheckRun {
+struct WorkflowJob {
     id: usize,
     name: String,
     html_url: String,
+    head_sha: String,
     #[serde(flatten)]
     outcome: BuildOutcome,
 }
 
 struct GHAJob {
-    repo: String,
-    sha: String,
-    check_run: CheckRun,
+    inner: WorkflowJob,
+    repo_name: String,
 }
 
 impl Job for GHAJob {
     fn id(&self) -> String {
-        self.check_run.id.to_string()
+        self.inner.id.to_string()
     }
 
     fn html_url(&self) -> String {
-        self.check_run.html_url.clone()
+        self.inner.html_url.clone()
     }
 
     fn log_url(&self) -> Option<String> {
         Some(format!(
-            "https://github.com/{}/commit/{}/checks/{}/log",
-            self.repo, self.sha, self.check_run.id
+            "https://github.com/{}/commit/{}/checks/{}/logs",
+            self.repo_name, self.inner.head_sha, self.inner.id
+        ))
+    }
+
+    fn log_api_url(&self) -> Option<String> {
+        Some(format!(
+            "https://api.github.com/repos/{}/actions/jobs/{}/logs",
+            self.repo_name, self.inner.id
         ))
     }
 
     fn log_file_name(&self) -> String {
-        format!("actions-{}-{}", self.check_run.id, self.check_run.name)
+        format!("actions-{}-{}", self.inner.id, self.inner.name)
     }
 
     fn outcome(&self) -> &dyn Outcome {
-        &self.check_run.outcome
+        &self.inner.outcome
     }
 }
 
@@ -124,7 +159,7 @@ impl std::fmt::Display for GHAJob {
         write!(
             f,
             "job {} named {} (outcome={:?})",
-            self.check_run.id, self.check_run.name, self.check_run.outcome
+            self.inner.id, self.inner.name, self.inner.outcome
         )
     }
 }
@@ -148,19 +183,14 @@ impl Client {
 
     fn req(&self, method: Method, url: &str) -> Result<Response> {
         Ok(self
-            .http
-            .request(
+            .authenticate_request(self.http.request(
                 method,
                 &if url.starts_with("https://") {
                     url.to_string()
                 } else {
                     format!("https://api.github.com/{}", url)
                 },
-            )
-            .header(
-                reqwest::header::AUTHORIZATION,
-                format!("token {}", self.token),
-            )
+            ))
             .send()?)
     }
 
@@ -168,7 +198,7 @@ impl Client {
         &self,
         method: Method,
         url: &str,
-        handle: &mut dyn FnMut(Response) -> Result<()>,
+        handle: &mut dyn FnMut(Response) -> Result<bool>,
     ) -> Result<()> {
         let mut next_url = Some(url.to_string());
         while let Some(url) = next_url {
@@ -181,7 +211,9 @@ impl Client {
                 next_url = None;
             }
 
-            handle(resp)?;
+            if !handle(resp)? {
+                break;
+            }
         }
         Ok(())
     }
@@ -192,7 +224,7 @@ impl CiPlatform for Client {
         if e.check_run.app.id != GITHUB_ACTIONS_APP_ID {
             return None;
         }
-        Some(e.check_run.check_suite.id)
+        todo!();
     }
 
     fn build_id_from_github_status(&self, _e: &crate::github::CommitStatusEvent) -> Option<u64> {
@@ -201,46 +233,55 @@ impl CiPlatform for Client {
 
     fn query_builds(
         &self,
-        _count: u32,
+        count: u32,
         _offset: u32,
-        _filter: &dyn Fn(&dyn Build) -> bool,
+        filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>> {
-        // There is currently no API to do this, unfortunately.
-        unimplemented!();
-    }
+        #[derive(Deserialize)]
+        struct AllRuns {
+            workflow_runs: Vec<ActionsRun>,
+        }
 
-    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
-        let check_suite: CheckSuite = self
-            .req(
-                Method::GET,
-                &format!("repos/{}/check-suites/{}", self.repo, id),
-            )?
-            .error_for_status()?
-            .json()?;
-
-        let mut jobs = Vec::new();
+        let mut builds = Vec::new();
         self.paginated(
             Method::GET,
-            &format!("repos/{}/check-suites/{}/check-runs", self.repo, id),
+            &format!("repos/{}/actions/runs", self.repo),
             &mut |mut resp| {
-                #[derive(Deserialize)]
-                struct CheckRunsResult {
-                    check_runs: Vec<CheckRun>,
+                let mut partial_runs: AllRuns = resp.json()?;
+                for run in partial_runs.workflow_runs.drain(..) {
+                    if !run.outcome.is_finished() {
+                        continue;
+                    }
+
+                    let build = GHABuild::new(self, run)?;
+                    if filter(build.as_ref()) {
+                        builds.push(build);
+                    }
                 }
 
-                let mut runs: CheckRunsResult = resp.json()?;
-                for check_run in runs.check_runs.drain(..) {
-                    jobs.push(GHAJob {
-                        repo: self.repo.clone(),
-                        sha: check_suite.head_sha.clone(),
-                        check_run,
-                    });
-                }
-                Ok(())
+                Ok(builds.len() <= count as usize)
             },
         )?;
 
-        Ok(Box::new(GHABuild { jobs, check_suite }))
+        Ok(builds)
+    }
+
+    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
+        let run: ActionsRun = self
+            .req(
+                Method::GET,
+                &format!("repos/{}/actions/runs/{}", self.repo, id),
+            )?
+            .error_for_status()?
+            .json()?;
+        Ok(GHABuild::new(self, run)?)
+    }
+
+    fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
+        request.header(
+            reqwest::header::AUTHORIZATION,
+            format!("token {}", self.token),
+        )
     }
 }
 

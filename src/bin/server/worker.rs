@@ -143,7 +143,7 @@ impl Worker {
             None => bail!("No failed job found, cannot report."),
         };
 
-        let log = match ci::download_log(job, self.github.internal()) {
+        let log = match ci::download_log(self.ci.as_ref(), job, self.github.internal()) {
             Some(res) => res?,
             None => bail!("No log for failed job"),
         };
@@ -266,7 +266,7 @@ impl Worker {
 
             debug!("Processing {}...", job);
 
-            match ci::download_log(*job, self.github.internal()) {
+            match ci::download_log(self.ci.as_ref(), *job, self.github.internal()) {
                 Some(Ok(log)) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
