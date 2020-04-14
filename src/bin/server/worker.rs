@@ -2,7 +2,6 @@ use super::QueueItem;
 
 use crate::rla;
 use crate::rla::ci::{self, CiPlatform};
-use regex::bytes::Regex;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::str;
@@ -173,6 +172,8 @@ impl Worker {
             .query_commit("rust-lang/rust", &build.commit_sha())?;
         let commit_message = commit_info.commit.message;
 
+        let log_variables = rla::log_variables::LogVariables::extract(&lines);
+
         let (pr, is_bors) = if let Some(pr) = build.pr_number() {
             (pr, false)
         } else {
@@ -187,6 +188,8 @@ impl Worker {
                         .parse()?,
                     true,
                 )
+            } else if let Some(number) = log_variables.pr_number {
+                (number.parse()?, false)
             } else {
                 bail!("Could not determine PR number, cannot report.");
             }
@@ -230,7 +233,7 @@ impl Worker {
             None => ("rust-lang/rust", pr),
         };
 
-        let opening = match extract_job_name(&lines) {
+        let opening = match log_variables.job_name {
             Some(job_name) => format!("The job `{}` of your PR", job_name),
             None => "Your PR".to_owned(),
         };
@@ -292,18 +295,4 @@ impl Worker {
 
         Ok(())
     }
-}
-
-fn extract_job_name<I: rla::index::IndexData>(lines: &[I]) -> Option<&str> {
-    lazy_static! {
-        static ref JOB_NAME_PATTERN: Regex = Regex::new("\\[CI_JOB_NAME=([^\\]]+)\\]").unwrap();
-    }
-
-    for line in lines {
-        if let Some(m) = JOB_NAME_PATTERN.captures(line.sanitized()) {
-            return str::from_utf8(m.get(1).unwrap().as_bytes()).ok();
-        }
-    }
-
-    None
 }
