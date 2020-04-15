@@ -229,7 +229,13 @@ impl CiPlatform for Client {
             return None;
         }
 
-        fetch_workflow_run_id_from_check_run(self, &e.check_run).ok()
+        match fetch_workflow_run_id_from_check_run(self, &e.check_run) {
+            Ok(id) => Some(id),
+            Err(err) => {
+                debug!("failed to fetch GHA build ID: {}", err);
+                None
+            }
+        }
     }
 
     fn build_id_from_github_status(&self, _e: &crate::github::CommitStatusEvent) -> Option<u64> {
@@ -293,6 +299,7 @@ impl CiPlatform for Client {
 fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Result<u64> {
     #[derive(Deserialize)]
     struct ResponseRuns {
+        total_count: usize,
         workflow_runs: Vec<ResponseRun>,
     }
 
@@ -302,6 +309,8 @@ fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Resu
         check_suite_url: String,
     }
 
+    trace!("starting to fetch workflow run IDs for the {} repo", client.repo);
+
     let runs: ResponseRuns = client
         .req(
             Method::GET,
@@ -310,8 +319,11 @@ fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Resu
         .error_for_status()?
         .json()?;
 
+    trace!("received {} workflow runs", runs.total_count);
+
     for workflow_run in &runs.workflow_runs {
         if workflow_run.check_suite_url == run.check_suite.url {
+            trace!("found a matching workflow run");
             return Ok(workflow_run.id);
         }
     }
