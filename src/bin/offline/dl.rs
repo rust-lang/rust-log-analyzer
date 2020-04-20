@@ -71,7 +71,7 @@ pub fn download(
                 job, attempt, LOG_DL_MAX_ATTEMPTS
             );
 
-            match ci::download_log(job, &client) {
+            match ci::download_log(ci, job, &client) {
                 Some(Ok(d)) => {
                     data = d;
                     break;

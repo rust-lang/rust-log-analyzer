@@ -1,8 +1,11 @@
+use reqwest::RequestBuilder;
 use std::io::Read;
 
+mod actions;
 mod azure;
 mod travis;
 
+pub use actions::Client as GitHubActions;
 pub use azure::Client as AzurePipelines;
 pub use travis::Client as TravisCI;
 
@@ -28,6 +31,10 @@ pub trait Job: std::fmt::Display {
     fn log_url(&self) -> Option<String>; // sometimes we just don't have log URLs
     fn log_file_name(&self) -> String;
     fn outcome(&self) -> &dyn Outcome;
+
+    fn log_api_url(&self) -> Option<String> {
+        self.log_url()
+    }
 }
 
 pub trait CiPlatform {
@@ -41,11 +48,19 @@ pub trait CiPlatform {
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>>;
     fn query_build(&self, id: u64) -> Result<Box<dyn Build>>;
+
+    fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
+        request
+    }
 }
 
-pub fn download_log(job: &dyn Job, client: &reqwest::Client) -> Option<Result<Vec<u8>>> {
-    if let Some(url) = job.log_url() {
-        let mut resp = match client.get(&url).send() {
+pub fn download_log(
+    ci: &dyn CiPlatform,
+    job: &dyn Job,
+    client: &reqwest::Client,
+) -> Option<Result<Vec<u8>>> {
+    if let Some(url) = job.log_api_url() {
+        let mut resp = match ci.authenticate_request(client.get(&url)).send() {
             Ok(v) => v,
             Err(e) => return Some(Err(e.into())),
         };

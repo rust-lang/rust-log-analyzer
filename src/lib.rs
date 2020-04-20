@@ -29,6 +29,7 @@ pub mod ci;
 pub mod extract;
 pub mod github;
 pub mod index;
+pub mod log_variables;
 pub mod sanitize;
 
 pub use self::index::Index;
