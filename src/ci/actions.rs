@@ -61,11 +61,11 @@ struct GHABuild {
 
 impl GHABuild {
     #[allow(clippy::new_ret_no_self)]
-    fn new(client: &Client, run: ActionsRun) -> Result<Box<dyn Build>> {
+    fn new(client: &Client, repo: &str, run: ActionsRun) -> Result<Box<dyn Build>> {
         let mut jobs = Vec::new();
         client.paginated(
             Method::GET,
-            &format!("repos/{}/actions/runs/{}/jobs", client.repo, run.id),
+            &format!("repos/{}/actions/runs/{}/jobs", repo, run.id),
             &mut |mut resp| {
                 #[derive(Deserialize)]
                 struct JobsResult {
@@ -76,7 +76,7 @@ impl GHABuild {
                 for job in partial_jobs.jobs.drain(..) {
                     jobs.push(GHAJob {
                         inner: job,
-                        repo_name: client.repo.clone(),
+                        repo_name: repo.to_string(),
                     });
                 }
                 Ok(true)
@@ -172,15 +172,13 @@ const GITHUB_ACTIONS_APP_ID: u64 = 15368;
 
 pub struct Client {
     http: ReqwestClient,
-    repo: String,
     token: String,
 }
 
 impl Client {
-    pub fn new(repo: &str, token: &str) -> Client {
+    pub fn new(token: &str) -> Client {
         Client {
             http: ReqwestClient::new(),
-            repo: repo.to_string(),
             token: token.to_string(),
         }
     }
@@ -229,7 +227,7 @@ impl CiPlatform for Client {
             return None;
         }
 
-        match fetch_workflow_run_id_from_check_run(self, &e.check_run) {
+        match fetch_workflow_run_id_from_check_run(self, &e.repository.full_name, &e.check_run) {
             Ok(id) => Some(id),
             Err(err) => {
                 debug!("failed to fetch GHA build ID: {}", err);
@@ -244,6 +242,7 @@ impl CiPlatform for Client {
 
     fn query_builds(
         &self,
+        repo: &str,
         count: u32,
         _offset: u32,
         filter: &dyn Fn(&dyn Build) -> bool,
@@ -256,7 +255,7 @@ impl CiPlatform for Client {
         let mut builds = Vec::new();
         self.paginated(
             Method::GET,
-            &format!("repos/{}/actions/runs", self.repo),
+            &format!("repos/{}/actions/runs", repo),
             &mut |mut resp| {
                 let mut partial_runs: AllRuns = resp.json()?;
                 for run in partial_runs.workflow_runs.drain(..) {
@@ -264,7 +263,7 @@ impl CiPlatform for Client {
                         continue;
                     }
 
-                    let build = GHABuild::new(self, run)?;
+                    let build = GHABuild::new(self, repo, run)?;
                     if filter(build.as_ref()) {
                         builds.push(build);
                     }
@@ -277,15 +276,15 @@ impl CiPlatform for Client {
         Ok(builds)
     }
 
-    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
+    fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>> {
         let run: ActionsRun = self
             .req(
                 Method::GET,
-                &format!("repos/{}/actions/runs/{}", self.repo, id),
+                &format!("repos/{}/actions/runs/{}", repo, id),
             )?
             .error_for_status()?
             .json()?;
-        Ok(GHABuild::new(self, run)?)
+        Ok(GHABuild::new(self, repo, run)?)
     }
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
@@ -296,7 +295,7 @@ impl CiPlatform for Client {
     }
 }
 
-fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Result<u64> {
+fn fetch_workflow_run_id_from_check_run(client: &Client, repo: &str, run: &CheckRun) -> Result<u64> {
     #[derive(Deserialize)]
     struct ResponseRuns {
         total_count: usize,
@@ -309,12 +308,12 @@ fn fetch_workflow_run_id_from_check_run(client: &Client, run: &CheckRun) -> Resu
         check_suite_url: String,
     }
 
-    trace!("starting to fetch workflow run IDs for the {} repo", client.repo);
+    trace!("starting to fetch workflow run IDs for the {} repo", repo);
 
     let runs: ResponseRuns = client
         .req(
             Method::GET,
-            &format!("repos/{}/actions/runs?per_page=100", client.repo),
+            &format!("repos/{}/actions/runs?per_page=100", repo),
         )?
         .error_for_status()?
         .json()?;

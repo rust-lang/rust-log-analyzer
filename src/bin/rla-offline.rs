@@ -112,6 +112,8 @@ enum Cli {
     Dl {
         #[structopt(long = "ci", help = "CI platform to download from.")]
         ci: util::CliCiPlatform,
+        #[structopt(long = "repo", help = "Repository to download from.")]
+        repo: String,
         #[structopt(short = "o", long = "output", help = "Log output directory.")]
         output: PathBuf,
         #[structopt(short = "c", long = "count", help = "Number of _builds_ to process.")]
@@ -158,6 +160,7 @@ fn main() {
         Cli::ExtractOne { index_file, log } => offline::extract::one(&index_file, &log),
         Cli::Dl {
             ci,
+            repo,
             output,
             count,
             skip,
@@ -166,6 +169,7 @@ fn main() {
             failed,
         } => offline::dl::download(
             ci.get()?.as_ref(),
+            &repo,
             &output,
             count,
             skip,

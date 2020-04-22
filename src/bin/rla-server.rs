@@ -64,6 +64,8 @@ struct Cli {
     webhook_verify: bool,
     #[structopt(long = "ci", help = "CI platform to interact with.")]
     ci: util::CliCiPlatform,
+    #[structopt(long = "repo", help = "Repository to interact with.")]
+    repo: String,
 }
 
 fn main() {
@@ -78,7 +80,7 @@ fn main() {
         let service = Arc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
 
         let mut worker =
-            server::Worker::new(args.index_file, args.debug_post, queue_recv, args.ci.get()?)?;
+            server::Worker::new(args.index_file, args.debug_post, queue_recv, args.ci.get()?, args.repo)?;
 
         thread::spawn(move || {
             if let Err(e) = worker.main() {

@@ -43,11 +43,12 @@ pub trait CiPlatform {
 
     fn query_builds(
         &self,
+        repo: &str,
         count: u32,
         offset: u32,
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>>;
-    fn query_build(&self, id: u64) -> Result<Box<dyn Build>>;
+    fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>>;
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
         request

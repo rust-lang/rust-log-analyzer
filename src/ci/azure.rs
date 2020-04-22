@@ -66,8 +66,6 @@ struct TimelineRecord {
     log: Option<TimelineLog>,
     #[serde(flatten)]
     outcome: BuildOutcome,
-    #[serde(skip, default)]
-    build: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,20 +83,27 @@ impl TimelineRecord {
     }
 }
 
-impl Job for TimelineRecord {
+#[derive(Debug)]
+struct AzureJob {
+    record: TimelineRecord,
+    build: u64,
+    repo: String,
+}
+
+impl Job for AzureJob {
     fn id(&self) -> String {
-        self.id.clone()
+        self.record.id.clone()
     }
 
     fn html_url(&self) -> String {
         format!(
-        "https://dev.azure.com/rust-lang/rust/_build/results?buildId={build}&view=logs&jobId={job}",
-        build = self.build, job = self.id
+            "https://dev.azure.com/{repo}/_build/results?buildId={build}&view=logs&jobId={job}",
+            repo = self.repo, build = self.build, job = self.record.id
         )
     }
 
     fn log_url(&self) -> Option<String> {
-        self.log.as_ref().map(|l| l.url.clone())
+        self.record.log.as_ref().map(|l| l.url.clone())
     }
 
     fn log_file_name(&self) -> String {
@@ -106,16 +111,16 @@ impl Job for TimelineRecord {
     }
 
     fn outcome(&self) -> &dyn Outcome {
-        &self.outcome
+        &self.record.outcome
     }
 }
 
-impl fmt::Display for TimelineRecord {
+impl fmt::Display for AzureJob {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "job {} of build {} (outcome={:?})",
-            self.name, self.build, self.outcome
+            self.record.name, self.build, self.record.outcome
         )
     }
 }
@@ -162,26 +167,31 @@ struct AzureBuildData {
 #[derive(Debug)]
 struct AzureBuild {
     data: AzureBuildData,
-    timeline: Vec<TimelineRecord>,
+    jobs: Vec<AzureJob>,
 }
 
 impl AzureBuild {
-    fn new(client: &Client, data: AzureBuildData) -> Result<Option<Self>> {
+    fn new(client: &Client, repo: &str, data: AzureBuildData) -> Result<Option<Self>> {
         let mut resp = client
-            .req(Method::GET, &data.links.timeline.href)?
+            .req(Method::GET, repo, &data.links.timeline.href)?
             .error_for_status()?;
         // this means that the build didn't parse from the yaml,
         // or at least that's the one case we've hit so far
         if resp.status() == StatusCode::NO_CONTENT {
             return Ok(None);
         }
-        let mut timeline: Timeline = resp.json().with_context(|_| format!("{:?}", resp))?;
-        for record in &mut timeline.records {
-            record.build = data.id;
-        }
+        let timeline: Timeline = resp.json().with_context(|_| format!("{:?}", resp))?;
         Ok(Some(AzureBuild {
+            jobs: timeline
+                .records
+                .into_iter()
+                .map(|record| AzureJob {
+                    build: data.id,
+                    repo: repo.to_string(),
+                    record,
+                })
+                .collect(),
             data,
-            timeline: timeline.records,
         }))
     }
 }
@@ -215,13 +225,13 @@ impl Build for AzureBuild {
     }
 
     fn jobs(&self) -> Vec<&dyn Job> {
-        self.timeline
+        self.jobs
             .iter()
-            .filter(|record| record.type_ == "Job")
+            .filter(|job| job.record.type_ == "Job")
             // Azure does not properly publish logs for canceled builds. These builds are the ones
             // that cancelbot killed manually, vs. the "failed" builds, so we don't care too much
             // about them for now, and just ignore them here
-            .filter(|record| record.outcome.result != Some(BuildResult::Canceled))
+            .filter(|job| job.record.outcome.result != Some(BuildResult::Canceled))
             .map(|job| job as &dyn Job)
             .collect()
     }
@@ -235,20 +245,18 @@ struct AzureBuilds {
 
 pub struct Client {
     http: ReqwestClient,
-    repo: String,
     token: String,
 }
 
 impl Client {
-    pub fn new(repo: &str, token: &str) -> Client {
+    pub fn new(token: &str) -> Client {
         Client {
             http: ReqwestClient::new(),
-            repo: repo.to_string(),
             token: token.to_string(),
         }
     }
 
-    fn req(&self, method: Method, url: &str) -> Result<Response> {
+    fn req(&self, method: Method, repo: &str, url: &str) -> Result<Response> {
         Ok(self
             .http
             .request(
@@ -256,7 +264,7 @@ impl Client {
                 &if url.starts_with("https://") {
                     url.to_owned()
                 } else {
-                    format!("https://dev.azure.com/{}/_apis/{}", self.repo, url)
+                    format!("https://dev.azure.com/{}/_apis/{}", repo, url)
                 },
             )
             .basic_auth("", Some(self.token.clone()))
@@ -284,12 +292,14 @@ impl CiPlatform for Client {
 
     fn query_builds(
         &self,
+        repo: &str,
         count: u32,
         offset: u32,
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>> {
         let resp = self.req(
             Method::GET,
+            repo,
             &format!("build/builds?api-version=5.0&$top={}", count),
         )?;
         let mut resp = resp.error_for_status()?;
@@ -299,7 +309,7 @@ impl CiPlatform for Client {
             if build.outcome.status == Some(BuildStatus::InProgress) {
                 continue;
             }
-            if let Some(build) = AzureBuild::new(&self, build)? {
+            if let Some(build) = AzureBuild::new(&self, repo, build)? {
                 println!(
                     "id={} pr={:?} branch_name={}, commit={}, status={:?}",
                     build.data.id,
@@ -319,11 +329,11 @@ impl CiPlatform for Client {
         Ok(ret)
     }
 
-    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
-        let resp = self.req(Method::GET, &format!("build/builds/{}?api-version=5.0", id))?;
+    fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>> {
+        let resp = self.req(Method::GET, repo, &format!("build/builds/{}?api-version=5.0", id))?;
         let mut resp = resp.error_for_status()?;
         let data: AzureBuildData = resp.json()?;
-        if let Some(build) = AzureBuild::new(&self, data)? {
+        if let Some(build) = AzureBuild::new(&self, repo, data)? {
             Ok(Box::new(build))
         } else {
             Err(failure::err_msg("no build results"))

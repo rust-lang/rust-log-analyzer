@@ -226,6 +226,7 @@ impl CiPlatform for Client {
 
     fn query_builds(
         &self,
+        _repo: &str,
         mut count: u32,
         mut offset: u32,
         filter: &dyn Fn(&dyn Build) -> bool,
@@ -254,7 +255,7 @@ impl CiPlatform for Client {
         Ok(res)
     }
 
-    fn query_build(&self, id: u64) -> Result<Box<dyn Build>> {
+    fn query_build(&self, _repo: &str, id: u64) -> Result<Box<dyn Build>> {
         let mut resp = self.get(&format!("build/{}?include=build.jobs", id))?;
         if !resp.status().is_success() {
             bail!("Build query failed: {:?}", resp);

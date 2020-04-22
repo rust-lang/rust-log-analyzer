@@ -6,8 +6,6 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::str;
 
-static REPO: &str = "rust-lang/rust";
-
 // We keep track of the last several unique job IDs. This is because
 // Azure sends us a notification for every individual builder's
 // state (around 70 notifications/job as of this time), but we want
@@ -34,6 +32,7 @@ pub struct Worker {
     queue: crossbeam::channel::Receiver<QueueItem>,
     seen: VecDeque<u64>,
     ci: Box<dyn CiPlatform + Send>,
+    repo: String,
 }
 
 impl Worker {
@@ -42,6 +41,7 @@ impl Worker {
         debug_post: Option<String>,
         queue: crossbeam::channel::Receiver<QueueItem>,
         ci: Box<dyn CiPlatform + Send>,
+        repo: String,
     ) -> rla::Result<Worker> {
         let debug_post = match debug_post {
             None => None,
@@ -65,6 +65,7 @@ impl Worker {
             seen: VecDeque::new(),
             queue,
             ci,
+            repo,
         })
     }
 
@@ -79,9 +80,9 @@ impl Worker {
     }
 
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
-        let build_id = match item {
+        let (repo, build_id) = match &item {
             QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if ev.repository.full_name == REPO => id,
+                Some(id) if ev.repository.full_name == self.repo => (&ev.repository.full_name, id),
                 _ => {
                     info!(
                         "Ignoring invalid event (ctx: {:?}, url: {:?}).",
@@ -91,7 +92,7 @@ impl Worker {
                 }
             },
             QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if ev.repository.full_name == REPO => id,
+                Some(id) if ev.repository.full_name == self.repo => (&ev.repository.full_name, id),
                 _ => {
                     info!(
                         "Ignoring invalid event (app id: {:?}, url: {:?}).",
@@ -113,7 +114,7 @@ impl Worker {
             self.seen.pop_back();
         }
 
-        let build = self.ci.query_build(build_id)?;
+        let build = self.ci.query_build(repo, build_id)?;
         if !build.outcome().is_finished() {
             info!("Ignoring in-progress build.");
             if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {
@@ -169,7 +170,7 @@ impl Worker {
 
         let commit_info = self
             .github
-            .query_commit("rust-lang/rust", &build.commit_sha())?;
+            .query_commit(&self.repo, &build.commit_sha())?;
         let commit_message = commit_info.commit.message;
 
         let log_variables = rla::log_variables::LogVariables::extract(&lines);
@@ -196,7 +197,7 @@ impl Worker {
         };
 
         if !is_bors {
-            let pr_info = self.github.query_pr("rust-lang/rust", pr)?;
+            let pr_info = self.github.query_pr(&self.repo, pr)?;
 
             if !commit_message.starts_with("Merge ") {
                 bail!(
@@ -225,12 +226,12 @@ impl Worker {
         let (repo, pr) = match self.debug_post {
             Some((ref repo, pr_override)) => {
                 warn!(
-                    "Would post to 'rust-lang/rust#{}', debug override to '{}#{}'",
-                    pr, repo, pr_override
+                    "Would post to '{}#{}', debug override to '{}#{}'",
+                    self.repo, pr, repo, pr_override
                 );
-                (repo.as_ref(), pr_override)
+                (repo.as_str(), pr_override)
             }
-            None => ("rust-lang/rust", pr),
+            None => (self.repo.as_str(), pr),
         };
 
         let opening = match log_variables.job_name {

@@ -5,8 +5,6 @@ use log;
 use std::env;
 use std::process;
 
-static REPO: &str = "rust-lang/rust";
-
 pub(crate) enum CliCiPlatform {
     Travis,
     Azure,
@@ -20,12 +18,12 @@ impl CliCiPlatform {
             CliCiPlatform::Azure => {
                 let token = std::env::var("AZURE_DEVOPS_TOKEN")
                     .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
-                Box::new(rla::ci::AzurePipelines::new(REPO, &token))
+                Box::new(rla::ci::AzurePipelines::new(&token))
             }
             CliCiPlatform::Actions => {
                 let token = std::env::var("GITHUB_TOKEN")
                     .with_context(|_| "failed to read GITHUB_TOKEN env var")?;
-                Box::new(rla::ci::GitHubActions::new(REPO, &token))
+                Box::new(rla::ci::GitHubActions::new(&token))
             }
         })
     }
