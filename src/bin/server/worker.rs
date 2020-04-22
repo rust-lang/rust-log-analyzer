@@ -33,6 +33,7 @@ pub struct Worker {
     seen: VecDeque<u64>,
     ci: Box<dyn CiPlatform + Send>,
     repo: String,
+    secondary_repos: Vec<String>,
 }
 
 impl Worker {
@@ -42,6 +43,7 @@ impl Worker {
         queue: crossbeam::channel::Receiver<QueueItem>,
         ci: Box<dyn CiPlatform + Send>,
         repo: String,
+        secondary_repos: Vec<String>,
     ) -> rla::Result<Worker> {
         let debug_post = match debug_post {
             None => None,
@@ -66,6 +68,7 @@ impl Worker {
             queue,
             ci,
             repo,
+            secondary_repos,
         })
     }
 
@@ -79,10 +82,17 @@ impl Worker {
         }
     }
 
+    fn is_repo_valid(&self, repo: &str) -> bool {
+        if repo == self.repo {
+            return true;
+        }
+        self.secondary_repos.iter().find(|r| *r == repo).is_some()
+    }
+
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
         let (repo, build_id) = match &item {
             QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if ev.repository.full_name == self.repo => (&ev.repository.full_name, id),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id),
                 _ => {
                     info!(
                         "Ignoring invalid event (ctx: {:?}, url: {:?}).",
@@ -92,7 +102,7 @@ impl Worker {
                 }
             },
             QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if ev.repository.full_name == self.repo => (&ev.repository.full_name, id),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id),
                 _ => {
                     info!(
                         "Ignoring invalid event (app id: {:?}, url: {:?}).",
