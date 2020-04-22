@@ -34,6 +34,7 @@ pub struct Worker {
     ci: Box<dyn CiPlatform + Send>,
     repo: String,
     secondary_repos: Vec<String>,
+    query_builds_from_primary_repo: bool,
 }
 
 impl Worker {
@@ -44,6 +45,7 @@ impl Worker {
         ci: Box<dyn CiPlatform + Send>,
         repo: String,
         secondary_repos: Vec<String>,
+        query_builds_from_primary_repo: bool,
     ) -> rla::Result<Worker> {
         let debug_post = match debug_post {
             None => None,
@@ -69,6 +71,7 @@ impl Worker {
             ci,
             repo,
             secondary_repos,
+            query_builds_from_primary_repo,
         })
     }
 
@@ -124,7 +127,13 @@ impl Worker {
             self.seen.pop_back();
         }
 
-        let build = self.ci.query_build(repo, build_id)?;
+        let query_from = if self.query_builds_from_primary_repo {
+            &self.repo
+        } else {
+            repo
+        };
+        let build = self.ci.query_build(query_from, build_id)?;
+
         if !build.outcome().is_finished() {
             info!("Ignoring in-progress build.");
             if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {

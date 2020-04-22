@@ -73,6 +73,11 @@ struct Cli {
         multiple = true
     )]
     secondary_repos: Vec<String>,
+    #[structopt(
+        long = "query-builds-from-primary-repo",
+        help = "Always query builds from the primary repo instead of the repo receiving them."
+    )]
+    query_builds_from_primary_repo: bool,
 }
 
 fn main() {
@@ -93,6 +98,7 @@ fn main() {
             args.ci.get()?,
             args.repo,
             args.secondary_repos,
+            args.query_builds_from_primary_repo,
         )?;
 
         thread::spawn(move || {
