@@ -17,7 +17,6 @@ RLA uses the `log` crate to write all output. By default, anything logged at `IN
 To run commands which access online resources, you have to provide the required authentication information in environment variables:
 
 * For *GitHub*, set `GITHUB_USER` to your GitHub user name and `GITHUB_TOKEN` to a [personal access token](https://github.com/settings/tokens) with at least "repo" scope.
-* For *Travis*, set `TRAVIS_API_KEY` to the API key of [your Travis account](https://travis-ci.org/profile).
 
 ### Bootstrapping an index file
 
@@ -32,7 +31,7 @@ To initialize a new index file, perform the following steps:
 
 ### Analyzing a specific log
 
-1. Download the log file you want to analyze using either the `rla-offline dl` command or manually from [travis-ci.org](https://travis-ci.org/).
+1. Download the log file you want to analyze using either the `rla-offline dl` command or manually from your CI provider.
     * All tools will automatically decompress files ending in `.brotli`, or assume uncompressed data otherwise.
 2. Use the `rla-offline extract-one` command analyze the log file.
     * Example command: `rla-offline extract-one -i demo.idx my-log.txt`
