@@ -64,6 +64,20 @@ struct Cli {
     webhook_verify: bool,
     #[structopt(long = "ci", help = "CI platform to interact with.")]
     ci: util::CliCiPlatform,
+    #[structopt(long = "repo", help = "Repository to interact with.")]
+    repo: String,
+    #[structopt(
+        long = "secondary-repo",
+        help="Secondary repositories to listen for builds.",
+        required = false,
+        multiple = true
+    )]
+    secondary_repos: Vec<String>,
+    #[structopt(
+        long = "query-builds-from-primary-repo",
+        help = "Always query builds from the primary repo instead of the repo receiving them."
+    )]
+    query_builds_from_primary_repo: bool,
 }
 
 fn main() {
@@ -77,8 +91,15 @@ fn main() {
 
         let service = Arc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
 
-        let mut worker =
-            server::Worker::new(args.index_file, args.debug_post, queue_recv, args.ci.get()?)?;
+        let mut worker = server::Worker::new(
+            args.index_file,
+            args.debug_post,
+            queue_recv,
+            args.ci.get()?,
+            args.repo,
+            args.secondary_repos,
+            args.query_builds_from_primary_repo,
+        )?;
 
         thread::spawn(move || {
             if let Err(e) = worker.main() {

@@ -29,6 +29,7 @@ pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<
 
 pub fn download(
     ci: &dyn CiPlatform,
+    repo: &str,
     output: &Path,
     count: u32,
     offset: u32,
@@ -45,7 +46,7 @@ pub fn download(
     let check_outcome = |outcome: &dyn rla::ci::Outcome| {
         (!only_passed || outcome.is_passed()) && (!only_failed || outcome.is_failed())
     };
-    let builds = ci.query_builds(count, offset, &|build| {
+    let builds = ci.query_builds(repo, count, offset, &|build| {
         (filter_branches.is_empty() || filter_branches.contains(build.branch_name()))
             && check_outcome(build.outcome())
     })?;
