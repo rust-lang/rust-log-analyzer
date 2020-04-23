@@ -6,7 +6,6 @@ use std::env;
 use std::process;
 
 pub(crate) enum CliCiPlatform {
-    Travis,
     Azure,
     Actions,
 }
@@ -14,7 +13,6 @@ pub(crate) enum CliCiPlatform {
 impl CliCiPlatform {
     pub(crate) fn get(&self) -> rla::Result<Box<dyn rla::ci::CiPlatform + Send>> {
         Ok(match self {
-            CliCiPlatform::Travis => Box::new(rla::ci::TravisCI::new()?),
             CliCiPlatform::Azure => {
                 let token = std::env::var("AZURE_DEVOPS_TOKEN")
                     .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
@@ -34,7 +32,6 @@ impl std::str::FromStr for CliCiPlatform {
 
     fn from_str(input: &str) -> rla::Result<Self> {
         Ok(match input {
-            "travis" => CliCiPlatform::Travis,
             "azure" => CliCiPlatform::Azure,
             "actions" => CliCiPlatform::Actions,
             other => bail!("unknown CI platform: {}", other),
