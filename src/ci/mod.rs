@@ -3,11 +3,9 @@ use std::io::Read;
 
 mod actions;
 mod azure;
-mod travis;
 
 pub use actions::Client as GitHubActions;
 pub use azure::Client as AzurePipelines;
-pub use travis::Client as TravisCI;
 
 use crate::Result;
 
