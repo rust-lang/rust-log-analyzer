@@ -1,4 +1,4 @@
-use crate::ci::{Build, CiPlatform, Job, Outcome};
+use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::github::CheckRun;
 use crate::Result;
 use regex::Regex;
@@ -99,8 +99,10 @@ impl Build for GHABuild {
         &self.run.head_branch
     }
 
-    fn commit_sha(&self) -> &str {
-        &self.run.head_sha
+    fn commit_sha(&self) -> BuildCommit<'_> {
+        BuildCommit::Head {
+            sha: &self.run.head_sha,
+        }
     }
 
     fn outcome(&self) -> &dyn Outcome {

@@ -10,6 +10,12 @@ pub use azure::Client as AzurePipelines;
 
 use crate::Result;
 
+#[derive(Debug)]
+pub enum BuildCommit<'a> {
+    Merge { sha: &'a str },
+    Head { sha: &'a str },
+}
+
 pub trait Outcome {
     fn is_finished(&self) -> bool;
     fn is_passed(&self) -> bool;
@@ -19,7 +25,7 @@ pub trait Outcome {
 pub trait Build {
     fn pr_number(&self) -> Option<u32>;
     fn branch_name(&self) -> &str;
-    fn commit_sha(&self) -> &str;
+    fn commit_sha(&self) -> BuildCommit;
     fn outcome(&self) -> &dyn Outcome;
     fn jobs(&self) -> Vec<&dyn Job>;
 }

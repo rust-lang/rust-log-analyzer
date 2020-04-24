@@ -1,5 +1,5 @@
 #![allow(unused)]
-use crate::ci::{Build, CiPlatform, Job, Outcome};
+use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::Result;
 use failure::ResultExt;
 use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
@@ -217,8 +217,17 @@ impl Build for AzureBuild {
         }
     }
 
-    fn commit_sha(&self) -> &str {
-        &self.data.source_version
+    fn commit_sha(&self) -> BuildCommit<'_> {
+        // Azure Pipelines returns merge commits for PRs and head commits for branches
+        if self.data.trigger_info.pr_number.is_some() {
+            BuildCommit::Merge {
+                sha: &self.data.source_version,
+            }
+        } else {
+            BuildCommit::Head {
+                sha: &self.data.source_version,
+            }
+        }
     }
 
     fn outcome(&self) -> &dyn Outcome {
