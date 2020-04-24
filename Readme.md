@@ -16,7 +16,7 @@ RLA uses the `log` crate to write all output. By default, anything logged at `IN
 
 To run commands which access online resources, you have to provide the required authentication information in environment variables:
 
-* For *GitHub*, set `GITHUB_USER` to your GitHub user name and `GITHUB_TOKEN` to a [personal access token](https://github.com/settings/tokens) with at least "repo" scope.
+* For *GitHub*, set `GITHUB_TOKEN` to a [personal access token](https://github.com/settings/tokens) with at least "repo" scope.
 
 ### Bootstrapping an index file
 

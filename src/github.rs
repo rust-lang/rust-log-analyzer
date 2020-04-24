@@ -37,7 +37,6 @@ pub struct Commit {
 }
 
 pub struct Client {
-    auth: (String, String),
     internal: reqwest::Client,
 }
 
@@ -79,8 +78,6 @@ pub struct Repository {
 
 impl Client {
     pub fn new() -> Result<Client> {
-        let user = env::var("GITHUB_USER")
-            .map_err(|e| format_err!("Could not read GITHUB_USER: {}", e))?;
         let token = env::var("GITHUB_TOKEN")
             .map_err(|e| format_err!("Could not read GITHUB_TOKEN: {}", e))?;
 
@@ -93,6 +90,10 @@ impl Client {
             header::USER_AGENT,
             header::HeaderValue::from_static(super::USER_AGENT),
         );
+        headers.insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_str(&format!("token {}", token))?,
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -102,7 +103,6 @@ impl Client {
 
         Ok(Client {
             internal: client,
-            auth: (user, token),
         })
     }
 
@@ -110,7 +110,6 @@ impl Client {
         let mut resp = self
             .internal
             .get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str())
-            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .send()?;
 
         if !resp.status().is_success() {
@@ -124,7 +123,6 @@ impl Client {
         let mut resp = self
             .internal
             .get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str())
-            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .send()?;
 
         if !resp.status().is_success() {
@@ -138,7 +136,6 @@ impl Client {
         let resp = self
             .internal
             .post(format!("{}/repos/{}/issues/{}/comments", API_BASE, repo, issue_id).as_str())
-            .basic_auth(&self.auth.0, Some(&self.auth.1))
             .json(&Comment { body: comment })
             .send()?;
         if !resp.status().is_success() {
