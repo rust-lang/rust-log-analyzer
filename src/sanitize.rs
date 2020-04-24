@@ -1,4 +1,5 @@
 use regex::bytes::Regex;
+use crate::ci::CiPlatform;
 
 pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
     lazy_static! {
@@ -16,7 +17,7 @@ pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
 /// * Removes most ANSI escape codes from the input.
 /// * Replaces all (Unicode) whitespace with single spaces.
 /// * Removes all (Unicode) control characters.
-pub fn clean(data: &[u8]) -> Vec<u8> {
+pub fn clean(ci: &dyn CiPlatform, data: &[u8]) -> Vec<u8> {
     lazy_static! {
         /// This catches most escape sequences. And I care about neither
         ///
@@ -31,7 +32,9 @@ pub fn clean(data: &[u8]) -> Vec<u8> {
         static ref UNICODE_CONTROL: Regex = Regex::new("(?u:\\p{Control})").unwrap();
     }
 
-    let data = ANSI_ESCAPES.replace_all(data, b"".as_ref());
+    let data = ci.remove_timestamp_from_log_line(data);
+
+    let data = ANSI_ESCAPES.replace_all(data.as_ref(), b"".as_ref());
     let data = UNICODE_WHITESPACE.replace_all(&data, b" ".as_ref());
     UNICODE_CONTROL
         .replace_all(&data, b"".as_ref())

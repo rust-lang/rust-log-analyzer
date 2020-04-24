@@ -5,6 +5,7 @@ use failure::ResultExt;
 use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
 use std::fmt;
 use std::io::Read;
+use std::borrow::Cow;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -338,5 +339,10 @@ impl CiPlatform for Client {
         } else {
             Err(failure::err_msg("no build results"))
         }
+    }
+
+    fn remove_timestamp_from_log_line<'a>(&self, line: &'a [u8]) -> Cow<'a, [u8]> {
+        // Azure Pipelines log lines are always prefixed by the timestamp.
+        Cow::Borrowed(line.splitn(2, |c| *c == b' ').last().unwrap_or(line))
     }
 }

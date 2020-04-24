@@ -169,7 +169,7 @@ impl Worker {
 
         let lines = rla::sanitize::split_lines(&log)
             .iter()
-            .map(|l| rla::index::Sanitized(rla::sanitize::clean(l)))
+            .map(|l| rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), l)))
             .collect::<Vec<_>>();
 
         let blocks = rla::extract::extract(&self.extract_config, &self.index, &lines);
@@ -293,7 +293,7 @@ impl Worker {
                 Some(Ok(log)) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
-                            .learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
+                            .learn(&rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), line)), 1);
                     }
                 }
                 None => {

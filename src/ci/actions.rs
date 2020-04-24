@@ -4,6 +4,7 @@ use crate::Result;
 use regex::Regex;
 use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
 use std::collections::HashMap;
+use std::borrow::Cow;
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -285,6 +286,11 @@ impl CiPlatform for Client {
             .error_for_status()?
             .json()?;
         Ok(GHABuild::new(self, repo, run)?)
+    }
+
+    fn remove_timestamp_from_log_line<'a>(&self, line: &'a [u8]) -> Cow<'a, [u8]> {
+        // GitHub Actions log lines are always prefixed by the timestamp.
+        Cow::Borrowed(line.splitn(2, |c| *c == b' ').last().unwrap_or(line))
     }
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {

@@ -1,5 +1,6 @@
 use reqwest::RequestBuilder;
 use std::io::Read;
+use std::borrow::Cow;
 
 mod actions;
 mod azure;
@@ -47,6 +48,10 @@ pub trait CiPlatform {
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>>;
     fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>>;
+
+    fn remove_timestamp_from_log_line<'a>(&self, line: &'a [u8]) -> Cow<'a, [u8]> {
+        Cow::Borrowed(line)
+    }
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
         request
