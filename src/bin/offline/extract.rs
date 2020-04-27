@@ -20,17 +20,22 @@ impl<'a> rla::index::IndexData for Line<'a> {
     }
 }
 
-fn load_lines(log: &[u8]) -> Vec<Line> {
+fn load_lines<'a>(ci: &dyn rla::ci::CiPlatform, log: &'a [u8]) -> Vec<Line<'a>> {
     rla::sanitize::split_lines(log)
         .iter()
         .map(|&line| Line {
             _original: line,
-            sanitized: rla::sanitize::clean(line),
+            sanitized: rla::sanitize::clean(ci, line),
         })
         .collect()
 }
 
-pub fn dir(index_file: &Path, src_dir: &Path, dst_dir: &Path) -> rla::Result<()> {
+pub fn dir(
+    ci: &dyn rla::ci::CiPlatform,
+    index_file: &Path,
+    src_dir: &Path,
+    dst_dir: &Path,
+) -> rla::Result<()> {
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
 
@@ -71,7 +76,7 @@ pub fn dir(index_file: &Path, src_dir: &Path, dst_dir: &Path) -> rla::Result<()>
         );
 
         let log = offline::fs::load_maybe_compressed(entry.path())?;
-        let lines = load_lines(&log);
+        let lines = load_lines(ci, &log);
         let blocks = rla::extract::extract(&config, &index, &lines);
 
         let mut out_name = entry.file_name().to_owned();
@@ -86,12 +91,12 @@ pub fn dir(index_file: &Path, src_dir: &Path, dst_dir: &Path) -> rla::Result<()>
     Ok(())
 }
 
-pub fn one(index_file: &Path, log_file: &Path) -> rla::Result<()> {
+pub fn one(ci: &dyn rla::ci::CiPlatform, index_file: &Path, log_file: &Path) -> rla::Result<()> {
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
 
     let log = offline::fs::load_maybe_compressed(log_file)?;
-    let lines = load_lines(&log);
+    let lines = load_lines(ci, &log);
     let blocks = rla::extract::extract(&config, &index, &lines);
 
     let stdout = io::stdout();

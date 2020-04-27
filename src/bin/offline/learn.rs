@@ -7,7 +7,12 @@ use std::time::Duration;
 use std::time::Instant;
 use walkdir::{self, WalkDir};
 
-pub fn learn(index_file: &Path, inputs: &[PathBuf], multiplier: u32) -> rla::Result<()> {
+pub fn learn(
+    ci: &dyn rla::ci::CiPlatform,
+    index_file: &Path,
+    inputs: &[PathBuf],
+    multiplier: u32,
+) -> rla::Result<()> {
     let mut index = rla::Index::load_or_create(index_file)?;
 
     let progress_every = Duration::from_secs(1);
@@ -43,7 +48,7 @@ pub fn learn(index_file: &Path, inputs: &[PathBuf], multiplier: u32) -> rla::Res
 
         for line in rla::sanitize::split_lines(&data) {
             index.learn(
-                &rla::index::Sanitized(rla::sanitize::clean(line)),
+                &rla::index::Sanitized(rla::sanitize::clean(ci, line)),
                 multiplier,
             );
         }

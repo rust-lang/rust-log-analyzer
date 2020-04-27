@@ -1,5 +1,6 @@
 use reqwest::RequestBuilder;
 use std::io::Read;
+use std::borrow::Cow;
 
 mod actions;
 mod azure;
@@ -8,6 +9,12 @@ pub use actions::Client as GitHubActions;
 pub use azure::Client as AzurePipelines;
 
 use crate::Result;
+
+#[derive(Debug)]
+pub enum BuildCommit<'a> {
+    Merge { sha: &'a str },
+    Head { sha: &'a str },
+}
 
 pub trait Outcome {
     fn is_finished(&self) -> bool;
@@ -18,7 +25,7 @@ pub trait Outcome {
 pub trait Build {
     fn pr_number(&self) -> Option<u32>;
     fn branch_name(&self) -> &str;
-    fn commit_sha(&self) -> &str;
+    fn commit_sha(&self) -> BuildCommit;
     fn outcome(&self) -> &dyn Outcome;
     fn jobs(&self) -> Vec<&dyn Job>;
 }
@@ -47,6 +54,10 @@ pub trait CiPlatform {
         filter: &dyn Fn(&dyn Build) -> bool,
     ) -> Result<Vec<Box<dyn Build>>>;
     fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>>;
+
+    fn remove_timestamp_from_log_line<'a>(&self, line: &'a [u8]) -> Cow<'a, [u8]> {
+        Cow::Borrowed(line)
+    }
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
         request

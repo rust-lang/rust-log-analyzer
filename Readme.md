@@ -27,14 +27,14 @@ To initialize a new index file, perform the following steps:
     * I'm still gathering data, but you should probably have well over 1000 log files (this does not mean over 1000 *builds*, since one builds consists of dozens of jobs)
     * Example command: `rla-offline dl --ci actions --repo rust-lang/rust -c 40 --branch auto --passed -o data/training`
 2. Train on the downloaded logs using the `rla-offline learn command`.
-    * Example command: `rla-offline learn -i demo.idx data/training`
+    * Example command: `rla-offline learn --ci actions -i demo.idx data/training`
 
 ### Analyzing a specific log
 
 1. Download the log file you want to analyze using either the `rla-offline dl` command or manually from your CI provider.
     * All tools will automatically decompress files ending in `.brotli`, or assume uncompressed data otherwise.
 2. Use the `rla-offline extract-one` command analyze the log file.
-    * Example command: `rla-offline extract-one -i demo.idx my-log.txt`
+    * Example command: `rla-offline extract-one --ci actions -i demo.idx my-log.txt`
 
 ### Evaluating quality while developing
 
@@ -45,5 +45,5 @@ To initialize a new index file, perform the following steps:
     * *Note: Eventually, a set of test log files will be provided in the repository.*
 2. Use the `rla-offline extract-dir` command to analyze all the log files and write the results to a separate directory.
     * You can (temporarily) check the result directory in to the repository to see diffs.
-    * Example command: `rla-offline extract-dir -i demo.idx -s data/failed -d data/err`
+    * Example command: `rla-offline extract-dir --ci actions -i demo.idx -s data/failed -d data/err`
     * *Note: Eventually, the expected results for the test log files will be provided in the repository and used as regression tests.*

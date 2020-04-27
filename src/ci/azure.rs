@@ -1,10 +1,11 @@
 #![allow(unused)]
-use crate::ci::{Build, CiPlatform, Job, Outcome};
+use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::Result;
 use failure::ResultExt;
 use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
 use std::fmt;
 use std::io::Read;
+use std::borrow::Cow;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -216,8 +217,17 @@ impl Build for AzureBuild {
         }
     }
 
-    fn commit_sha(&self) -> &str {
-        &self.data.source_version
+    fn commit_sha(&self) -> BuildCommit<'_> {
+        // Azure Pipelines returns merge commits for PRs and head commits for branches
+        if self.data.trigger_info.pr_number.is_some() {
+            BuildCommit::Merge {
+                sha: &self.data.source_version,
+            }
+        } else {
+            BuildCommit::Head {
+                sha: &self.data.source_version,
+            }
+        }
     }
 
     fn outcome(&self) -> &dyn Outcome {
@@ -338,5 +348,10 @@ impl CiPlatform for Client {
         } else {
             Err(failure::err_msg("no build results"))
         }
+    }
+
+    fn remove_timestamp_from_log_line<'a>(&self, line: &'a [u8]) -> Cow<'a, [u8]> {
+        // Azure Pipelines log lines are always prefixed by the timestamp.
+        Cow::Borrowed(line.splitn(2, |c| *c == b' ').last().unwrap_or(line))
     }
 }

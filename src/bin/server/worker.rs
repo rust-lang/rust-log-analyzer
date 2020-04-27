@@ -1,7 +1,7 @@
 use super::QueueItem;
 
 use crate::rla;
-use crate::rla::ci::{self, CiPlatform};
+use crate::rla::ci::{self, BuildCommit, CiPlatform};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::str;
@@ -169,7 +169,7 @@ impl Worker {
 
         let lines = rla::sanitize::split_lines(&log)
             .iter()
-            .map(|l| rla::index::Sanitized(rla::sanitize::clean(l)))
+            .map(|l| rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), l)))
             .collect::<Vec<_>>();
 
         let blocks = rla::extract::extract(&self.extract_config, &self.index, &lines);
@@ -187,10 +187,27 @@ impl Worker {
 
         let extracted = blocks.join("\n---\n");
 
-        let commit_info = self
+        // Some CI providers return a merge commit instead of the head commit of the branch/PR when
+        // querying the build. If the provider returned a merge commit, this fetches the related
+        // head commit from the GitHub API.
+        let commit_sha = match build.commit_sha() {
+            BuildCommit::Head { sha } => sha.to_string(),
+            BuildCommit::Merge { sha } => {
+                let mut commit = self.github.query_commit(&self.repo, sha)?;
+                if commit.parents.len() > 1 {
+                    // The first parent is master, the second parent is the branch/PR.
+                    commit.parents.remove(1).sha
+                } else {
+                    bail!("commit {} is not a merge commit", sha);
+                }
+            }
+        };
+
+        let commit_message = self
             .github
-            .query_commit(&self.repo, &build.commit_sha())?;
-        let commit_message = commit_info.commit.message;
+            .query_commit(&self.repo, &commit_sha)?
+            .commit
+            .message;
 
         let log_variables = rla::log_variables::LogVariables::extract(&lines);
 
@@ -217,26 +234,7 @@ impl Worker {
 
         if !is_bors {
             let pr_info = self.github.query_pr(&self.repo, pr)?;
-
-            if !commit_message.starts_with("Merge ") {
-                bail!(
-                    "Did not recognize commit {} with message '{}', skipping report.",
-                    build.commit_sha(),
-                    commit_message
-                );
-            }
-
-            let sha = commit_message.split(' ').nth(1).ok_or_else(|| {
-                format_err!(
-                    "Did not recognize commit {} with message '{}', skipping report.",
-                    build.commit_sha(),
-                    commit_message
-                )
-            })?;
-
-            debug!("Extracted head commit sha: '{}'", sha);
-
-            if pr_info.head.sha != sha {
+            if pr_info.head.sha != commit_sha {
                 info!("Build results outdated, skipping report.");
                 return Ok(());
             }
@@ -293,7 +291,7 @@ impl Worker {
                 Some(Ok(log)) => {
                     for line in rla::sanitize::split_lines(&log) {
                         self.index
-                            .learn(&rla::index::Sanitized(rla::sanitize::clean(line)), 1);
+                            .learn(&rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), line)), 1);
                     }
                 }
                 None => {

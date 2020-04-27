@@ -49,6 +49,8 @@ enum Cli {
 
     #[structopt(name = "learn", about = "Learn from previously downloaded log files.")]
     Learn {
+        #[structopt(long = "ci", help = "CI platform to download from.")]
+        ci: util::CliCiPlatform,
         #[structopt(
             short = "i",
             long = "index-file",
@@ -73,6 +75,8 @@ enum Cli {
         about = "Extract potential error messages from all log files in a directory, writing the results to a different directory."
     )]
     ExtractDir {
+        #[structopt(long = "ci", help = "CI platform to download from.")]
+        ci: util::CliCiPlatform,
         #[structopt(
             short = "i",
             long = "index-file",
@@ -98,6 +102,8 @@ enum Cli {
         about = "Extract a potential error message from a single log file."
     )]
     ExtractOne {
+        #[structopt(long = "ci", help = "CI platform to download from.")]
+        ci: util::CliCiPlatform,
         #[structopt(
             short = "i",
             long = "index-file",
@@ -148,16 +154,22 @@ fn main() {
             input,
         } => offline::dl::cat(&input, strip_control, decode_utf8),
         Cli::Learn {
+            ci,
             index_file,
             multiplier,
             logs,
-        } => offline::learn(&index_file, &logs, multiplier),
+        } => offline::learn(ci.get()?.as_ref(), &index_file, &logs, multiplier),
         Cli::ExtractDir {
+            ci,
             index_file,
             source,
             dest,
-        } => offline::extract::dir(&index_file, &source, &dest),
-        Cli::ExtractOne { index_file, log } => offline::extract::one(&index_file, &log),
+        } => offline::extract::dir(ci.get()?.as_ref(), &index_file, &source, &dest),
+        Cli::ExtractOne {
+            ci,
+            index_file,
+            log,
+        } => offline::extract::one(ci.get()?.as_ref(), &index_file, &log),
         Cli::Dl {
             ci,
             repo,

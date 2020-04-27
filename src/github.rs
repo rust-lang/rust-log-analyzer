@@ -29,11 +29,17 @@ pub struct PrCommitRef {
 #[derive(Deserialize)]
 pub struct CommitMeta {
     pub commit: Commit,
+    pub parents: Vec<CommitParent>,
 }
 
 #[derive(Deserialize)]
 pub struct Commit {
     pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct CommitParent {
+    pub sha: String,
 }
 
 pub struct Client {
