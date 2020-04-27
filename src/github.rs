@@ -1,4 +1,5 @@
 use super::Result;
+use crate::ci::Outcome;
 use hyper::header;
 use reqwest;
 use std::env;
@@ -8,6 +9,46 @@ use std::time::Duration;
 const TIMEOUT_SECS: u64 = 15;
 static ACCEPT_VERSION: &str = "application/vnd.github.v3+json";
 static API_BASE: &str = "https://api.github.com";
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildStatus {
+    Queued,
+    InProgress,
+    Completed,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildConclusion {
+    Success,
+    Failure,
+    Neutral,
+    Cancelled,
+    TimedOut,
+    ActionRequired,
+    Skipped,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct BuildOutcome {
+    status: BuildStatus,
+    conclusion: Option<BuildConclusion>,
+}
+
+impl Outcome for BuildOutcome {
+    fn is_finished(&self) -> bool {
+        self.status == BuildStatus::Completed
+    }
+
+    fn is_passed(&self) -> bool {
+        self.is_finished() && self.conclusion == Some(BuildConclusion::Success)
+    }
+
+    fn is_failed(&self) -> bool {
+        self.is_finished() && self.conclusion == Some(BuildConclusion::Failure)
+    }
+}
 
 #[derive(Deserialize)]
 pub struct CommitStatusEvent {
@@ -64,6 +105,8 @@ pub struct CheckRun {
     pub details_url: String,
     pub app: App,
     pub check_suite: CheckSuite,
+    #[serde(flatten)]
+    pub outcome: BuildOutcome,
 }
 
 #[derive(Deserialize)]
