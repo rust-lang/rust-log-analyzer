@@ -62,6 +62,12 @@ pub trait CiPlatform {
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
         request
     }
+
+    /// Some CI providers return mismatched data in the API compared to the webhook. Those
+    /// providers should return `true` from this method.
+    fn is_build_outcome_unreliable(&self) -> bool {
+        false
+    }
 }
 
 pub fn download_log(

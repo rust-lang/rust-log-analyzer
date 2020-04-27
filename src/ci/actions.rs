@@ -1,50 +1,10 @@
 use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
-use crate::github::CheckRun;
+use crate::github::{CheckRun, BuildOutcome};
 use crate::Result;
 use regex::Regex;
 use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
 use std::collections::HashMap;
 use std::borrow::Cow;
-
-#[derive(Deserialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum BuildStatus {
-    Queued,
-    InProgress,
-    Completed,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum BuildConclusion {
-    Success,
-    Failure,
-    Neutral,
-    Cancelled,
-    TimedOut,
-    ActionRequired,
-    Skipped,
-}
-
-#[derive(Deserialize, Debug)]
-struct BuildOutcome {
-    status: BuildStatus,
-    conclusion: Option<BuildConclusion>,
-}
-
-impl Outcome for BuildOutcome {
-    fn is_finished(&self) -> bool {
-        self.status == BuildStatus::Completed
-    }
-
-    fn is_passed(&self) -> bool {
-        self.is_finished() && self.conclusion == Some(BuildConclusion::Success)
-    }
-
-    fn is_failed(&self) -> bool {
-        self.is_finished() && self.conclusion == Some(BuildConclusion::Failure)
-    }
-}
 
 #[derive(Deserialize)]
 struct ActionsRun {
@@ -300,6 +260,10 @@ impl CiPlatform for Client {
             reqwest::header::AUTHORIZATION,
             format!("token {}", self.token),
         )
+    }
+
+    fn is_build_outcome_unreliable(&self) -> bool {
+        true
     }
 }
 

@@ -93,9 +93,9 @@ impl Worker {
     }
 
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
-        let (repo, build_id) = match &item {
+        let (repo, build_id, outcome) = match &item {
             QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id, None),
                 _ => {
                     info!(
                         "Ignoring invalid event (ctx: {:?}, url: {:?}).",
@@ -105,7 +105,7 @@ impl Worker {
                 }
             },
             QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id, Some(&ev.check_run.outcome)),
                 _ => {
                     info!(
                         "Ignoring invalid event (app id: {:?}, url: {:?}).",
@@ -134,7 +134,12 @@ impl Worker {
         };
         let build = self.ci.query_build(query_from, build_id)?;
 
-        if !build.outcome().is_finished() {
+        let outcome = match outcome {
+            Some(outcome) if self.ci.is_build_outcome_unreliable() => &*outcome,
+            _ => build.outcome(),
+        };
+
+        if !outcome.is_finished() {
             info!("Ignoring in-progress build.");
             if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {
                 // Remove ignored builds, as we haven't reported anything for them and the
@@ -144,7 +149,7 @@ impl Worker {
             }
             return Ok(());
         }
-        if !build.outcome().is_passed() {
+        if !outcome.is_passed() {
             self.report_failed(build.as_ref())?;
         }
         if build.pr_number().is_none() && build.branch_name() == "auto" {
