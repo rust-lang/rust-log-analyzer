@@ -56,7 +56,10 @@ pub fn download(
             continue;
         }
 
-        let save_path = output.join(format!("{}.log.brotli", job.log_file_name()));
+        let save_path = output.join(offline::fs::encode_path(&format!(
+            "{}.log.brotli",
+            job.log_file_name()
+        )));
         if save_path.is_file() {
             warn!("Skipping log for {} because the output file exists.", job);
             continue;
