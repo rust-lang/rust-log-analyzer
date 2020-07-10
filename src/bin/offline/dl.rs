@@ -51,12 +51,17 @@ pub fn download(
             && check_outcome(build.outcome())
     })?;
 
+    let compression_pool = threadpool::Builder::new().build();
+
     'job_loop: for job in builds.iter().flat_map(|b| b.jobs()) {
         if !check_outcome(job.outcome()) {
             continue;
         }
 
-        let save_path = output.join(format!("{}.log.brotli", job.log_file_name()));
+        let save_path = output.join(offline::fs::encode_path(&format!(
+            "{}.log.brotli",
+            job.log_file_name()
+        )));
         if save_path.is_file() {
             warn!("Skipping log for {} because the output file exists.", job);
             continue;
@@ -91,7 +96,19 @@ pub fn download(
 
         debug!("Compressing...");
 
-        offline::fs::save_compressed(&save_path, &data)?;
+        // When the pool is busy this compresses on the main thread, to avoid using a huge amount
+        // of RAM to store all the queued logs.
+        if compression_pool.active_count() >= compression_pool.max_count() {
+            debug!("compression pool is busy, compressing on the main thread...");
+            offline::fs::save_compressed(&save_path, &data)?;
+        } else {
+            debug!("compressing on the pool...");
+            compression_pool.execute(move || {
+                crate::util::log_and_exit_error(move || {
+                    offline::fs::save_compressed(&save_path, &data)
+                });
+            });
+        }
     }
 
     Ok(())
