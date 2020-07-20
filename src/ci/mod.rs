@@ -16,7 +16,7 @@ pub enum BuildCommit<'a> {
     Head { sha: &'a str },
 }
 
-pub trait Outcome {
+pub trait Outcome: std::fmt::Debug {
     fn is_finished(&self) -> bool;
     fn is_passed(&self) -> bool;
     fn is_failed(&self) -> bool;

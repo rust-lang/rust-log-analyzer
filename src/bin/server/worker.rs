@@ -120,10 +120,10 @@ impl Worker {
             },
         };
 
-        info!("Processing build #{}...", build_id);
+        info!("build {}: started processing", build_id);
 
         if self.seen.contains(&build_id) {
-            info!("Ignore recently seen build id");
+            info!("build {}: ignoring recently seen id", build_id);
             return Ok(());
         }
         self.seen.push_front(build_id);
@@ -143,8 +143,12 @@ impl Worker {
             _ => build.outcome(),
         };
 
+        debug!("build {}: current outcome: {:?}", build_id, outcome);
+        debug!("build {}: PR number: {:?}", build_id, build.pr_number());
+        debug!("build {}: branch name: {:?}", build_id, build.pr_number(),);
+
         if !outcome.is_finished() {
-            info!("Ignoring in-progress build.");
+            info!("build {}: ignoring in-progress build", build_id);
             if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {
                 // Remove ignored builds, as we haven't reported anything for them and the
                 // in-progress status might be misleading (e.g., leading edge of a group of
@@ -154,10 +158,17 @@ impl Worker {
             return Ok(());
         }
         if !outcome.is_passed() {
+            info!("build {}: preparing report", build_id);
             self.report_failed(build.as_ref())?;
         }
         if build.pr_number().is_none() && build.branch_name() == "auto" {
+            info!("build {}: learning from the log", build_id);
             self.learn(build.as_ref())?;
+        } else {
+            info!(
+                "build {}: did not learn as it's not an auto build",
+                build_id
+            );
         }
 
         Ok(())
