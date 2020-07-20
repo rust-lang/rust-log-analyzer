@@ -95,7 +95,9 @@ impl Worker {
     fn process(&mut self, item: QueueItem) -> rla::Result<()> {
         let (repo, build_id, outcome) = match &item {
             QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id, None),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
+                    (&ev.repository.full_name, id, None)
+                }
                 _ => {
                     info!(
                         "Ignoring invalid event (ctx: {:?}, url: {:?}).",
@@ -105,7 +107,9 @@ impl Worker {
                 }
             },
             QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => (&ev.repository.full_name, id, Some(&ev.check_run.outcome)),
+                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
+                    (&ev.repository.full_name, id, Some(&ev.check_run.outcome))
+                }
                 _ => {
                     info!(
                         "Ignoring invalid event (app id: {:?}, url: {:?}).",
@@ -295,8 +299,10 @@ impl Worker {
             match ci::download_log(self.ci.as_ref(), *job, self.github.internal()) {
                 Some(Ok(log)) => {
                     for line in rla::sanitize::split_lines(&log) {
-                        self.index
-                            .learn(&rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), line)), 1);
+                        self.index.learn(
+                            &rla::index::Sanitized(rla::sanitize::clean(self.ci.as_ref(), line)),
+                            1,
+                        );
                     }
                 }
                 None => {

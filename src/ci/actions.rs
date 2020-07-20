@@ -1,10 +1,10 @@
 use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
-use crate::github::{CheckRun, BuildOutcome};
+use crate::github::{BuildOutcome, CheckRun};
 use crate::Result;
 use regex::Regex;
 use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
-use std::collections::HashMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 #[derive(Deserialize)]
 struct ActionsRun {
@@ -241,10 +241,7 @@ impl CiPlatform for Client {
 
     fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>> {
         let run: ActionsRun = self
-            .req(
-                Method::GET,
-                &format!("repos/{}/actions/runs/{}", repo, id),
-            )?
+            .req(Method::GET, &format!("repos/{}/actions/runs/{}", repo, id))?
             .error_for_status()?
             .json()?;
         Ok(GHABuild::new(self, repo, run)?)
@@ -267,7 +264,11 @@ impl CiPlatform for Client {
     }
 }
 
-fn fetch_workflow_run_id_from_check_run(client: &Client, repo: &str, run: &CheckRun) -> Result<u64> {
+fn fetch_workflow_run_id_from_check_run(
+    client: &Client,
+    repo: &str,
+    run: &CheckRun,
+) -> Result<u64> {
     #[derive(Deserialize)]
     struct ResponseRuns {
         total_count: usize,

@@ -1,5 +1,5 @@
-use regex::bytes::Regex;
 use crate::ci::CiPlatform;
+use regex::bytes::Regex;
 
 pub fn split_lines(data: &[u8]) -> Vec<&[u8]> {
     lazy_static! {

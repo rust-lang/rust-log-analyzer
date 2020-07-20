@@ -150,9 +150,7 @@ impl Client {
             .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
             .build()?;
 
-        Ok(Client {
-            internal: client,
-        })
+        Ok(Client { internal: client })
     }
 
     pub fn query_pr(&self, repo: &str, pr_id: u32) -> Result<Pr> {

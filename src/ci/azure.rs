@@ -3,9 +3,9 @@ use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::Result;
 use failure::ResultExt;
 use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
+use std::borrow::Cow;
 use std::fmt;
 use std::io::Read;
-use std::borrow::Cow;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,7 +99,9 @@ impl Job for AzureJob {
     fn html_url(&self) -> String {
         format!(
             "https://dev.azure.com/{repo}/_build/results?buildId={build}&view=logs&jobId={job}",
-            repo = self.repo, build = self.build, job = self.record.id
+            repo = self.repo,
+            build = self.build,
+            job = self.record.id
         )
     }
 
@@ -340,7 +342,11 @@ impl CiPlatform for Client {
     }
 
     fn query_build(&self, repo: &str, id: u64) -> Result<Box<dyn Build>> {
-        let resp = self.req(Method::GET, repo, &format!("build/builds/{}?api-version=5.0", id))?;
+        let resp = self.req(
+            Method::GET,
+            repo,
+            &format!("build/builds/{}?api-version=5.0", id),
+        )?;
         let mut resp = resp.error_for_status()?;
         let data: AzureBuildData = resp.json()?;
         if let Some(build) = AzureBuild::new(&self, repo, data)? {

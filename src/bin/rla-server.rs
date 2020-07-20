@@ -68,7 +68,7 @@ struct Cli {
     repo: String,
     #[structopt(
         long = "secondary-repo",
-        help="Secondary repositories to listen for builds.",
+        help = "Secondary repositories to listen for builds.",
         required = false,
         multiple = true
     )]

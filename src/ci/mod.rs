@@ -1,6 +1,6 @@
 use reqwest::RequestBuilder;
-use std::io::Read;
 use std::borrow::Cow;
+use std::io::Read;
 
 mod actions;
 mod azure;
