@@ -2,10 +2,12 @@ use super::QueueItem;
 
 use crate::rla;
 use futures::{future, Future, Stream};
-use hyper::{self, Body, StatusCode};
+use hyper::{self, Body, Method, StatusCode};
 use hyper::{Request, Response};
 use serde_json;
 use std::env;
+
+type ResponseFuture = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send + 'static>;
 
 #[derive(Clone)]
 pub struct RlaService {
@@ -46,7 +48,12 @@ impl RlaService {
         })
     }
 
-    fn handle_webhook(&self, event: &str, headers: &hyper::HeaderMap, body: &[u8]) -> StatusCode {
+    fn handle_webhook(
+        &self,
+        event: &str,
+        headers: &hyper::HeaderMap,
+        body: &[u8],
+    ) -> ResponseFuture {
         if let Some(ref secret) = self.github_webhook_secret {
             let sig = headers.get("X-Hub-Signature");
 
@@ -54,7 +61,7 @@ impl RlaService {
             if let Err(e) = rla::github::verify_webhook_signature(secret, sig, body) {
                 if self.reject_unverified_webhooks {
                     error!("Rejecting web hook with invalid signature: {}", e);
-                    return StatusCode::FORBIDDEN;
+                    return reply(StatusCode::FORBIDDEN, "Invalid signature.\n");
                 }
 
                 warn!("Processing web hook with invalid signature: {}", e);
@@ -67,15 +74,18 @@ impl RlaService {
                     Ok(p) => p,
                     Err(e) => {
                         error!("Failed to decode 'status' web hook payload: {}", e);
-                        return StatusCode::BAD_REQUEST;
+                        return reply(StatusCode::BAD_REQUEST, "Failed to decode payload.\n");
                     }
                 };
 
                 match self.queue.send(QueueItem::GitHubStatus(payload)) {
-                    Ok(()) => StatusCode::OK,
+                    Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
                     Err(e) => {
                         error!("Failed to queue payload: {}", e);
-                        StatusCode::INTERNAL_SERVER_ERROR
+                        reply(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Failed to process the event.\n",
+                        )
                     }
                 }
             }
@@ -84,25 +94,28 @@ impl RlaService {
                     Ok(p) => p,
                     Err(e) => {
                         error!("Failed to decode 'check_run' web hook payload: {}", e);
-                        return StatusCode::BAD_REQUEST;
+                        return reply(StatusCode::BAD_REQUEST, "Failed to decode payload.\n");
                     }
                 };
 
                 match self.queue.send(QueueItem::GitHubCheckRun(payload)) {
-                    Ok(()) => StatusCode::OK,
+                    Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
                     Err(e) => {
                         error!("Failed to queue payload: {}", e);
-                        StatusCode::INTERNAL_SERVER_ERROR
+                        reply(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Failed to process the event.\n",
+                        )
                     }
                 }
             }
             "issue_comment" => {
                 debug!("Ignoring 'issue_comment' event.");
-                StatusCode::OK
+                reply(StatusCode::OK, "Event ignored.\n")
             }
             _ => {
                 warn!("Unexpected '{}' event.", event);
-                StatusCode::BAD_REQUEST
+                reply(StatusCode::BAD_REQUEST, "Unexpected event.\n")
             }
         }
     }
@@ -114,29 +127,28 @@ impl RlaService {
         req: Request<Body>,
     ) -> Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send> {
         let (req, body) = req.into_parts();
-        let handler: Box<dyn Future<Item = StatusCode, Error = hyper::Error> + Send + 'static> =
-            if let Some(ev) = req.headers.get("X-GitHub-Event").cloned() {
-                if req.method != hyper::Method::POST {
-                    warn!("Unexpected web hook method '{}'.", req.method);
-                    Box::new(future::ok(StatusCode::BAD_REQUEST))
-                } else if req.uri.path() != "/" {
-                    warn!("Unexpected web hook path '{}'.", req.uri.path());
-                    Box::new(future::ok(StatusCode::BAD_REQUEST))
-                } else {
+        info!("request: {} {}", req.method, req.uri.path());
+        match (req.method.clone(), req.uri.path()) {
+            (Method::GET, "/") => reply(StatusCode::OK, "Rust Log Analyzer is running.\n"),
+            (Method::POST, "/") => {
+                if let Some(ev) = req.headers.get("X-GitHub-Event").cloned() {
                     let slf = self.clone();
                     Box::new(body.concat2().and_then(move |body: hyper::Chunk| {
-                        future::ok(slf.handle_webhook(ev.to_str().unwrap(), &req.headers, &body))
+                        slf.handle_webhook(ev.to_str().unwrap(), &req.headers, &body)
                     }))
+                } else {
+                    reply(StatusCode::BAD_REQUEST, "Missing X-GitHub-Event header.\n")
                 }
-            } else {
-                trace!("Ignoring unrecognized request.");
-                Box::new(future::ok(StatusCode::BAD_REQUEST))
-            };
-
-        Box::new(handler.and_then(|code| {
-            let mut res = Response::new(Body::empty());
-            *res.status_mut() = code;
-            Ok(res)
-        }))
+            }
+            (_, "/") => reply(StatusCode::METHOD_NOT_ALLOWED, "Method not allowed.\n"),
+            _ => reply(StatusCode::NOT_FOUND, "Not found.\n"),
+        }
     }
+}
+
+fn reply(status: StatusCode, body: &'static str) -> ResponseFuture {
+    info!("response: {} {:?}", status.as_u16(), body.trim());
+    let mut resp = Response::new(Body::from(body));
+    *resp.status_mut() = status;
+    Box::new(future::ok(resp))
 }
