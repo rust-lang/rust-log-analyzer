@@ -126,11 +126,6 @@ impl Worker {
             info!("build {}: ignoring recently seen id", build_id);
             return Ok(());
         }
-        self.seen.push_front(build_id);
-        if self.seen.len() > KEEP_IDS {
-            self.seen.pop_back();
-        }
-
         let query_from = if self.query_builds_from_primary_repo {
             &self.repo
         } else {
@@ -145,18 +140,20 @@ impl Worker {
 
         debug!("build {}: current outcome: {:?}", build_id, outcome);
         debug!("build {}: PR number: {:?}", build_id, build.pr_number());
-        debug!("build {}: branch name: {:?}", build_id, build.pr_number(),);
+        debug!("build {}: branch name: {:?}", build_id, build.pr_number());
 
         if !outcome.is_finished() {
             info!("build {}: ignoring in-progress build", build_id);
-            if let Some(idx) = self.seen.iter().position(|id| *id == build_id) {
-                // Remove ignored builds, as we haven't reported anything for them and the
-                // in-progress status might be misleading (e.g., leading edge of a group of
-                // notifications).
-                self.seen.remove(idx);
-            }
             return Ok(());
         }
+
+        // Avoid processing the same build multiple times.
+        info!("build {}: marked as seen", build_id);
+        self.seen.push_front(build_id);
+        if self.seen.len() > KEEP_IDS {
+            self.seen.pop_back();
+        }
+
         if !outcome.is_passed() {
             info!("build {}: preparing report", build_id);
             self.report_failed(build.as_ref())?;
