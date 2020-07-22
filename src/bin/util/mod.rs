@@ -1,8 +1,5 @@
 use crate::rla;
-use env_logger;
 use failure::ResultExt;
-use log;
-use std::env;
 use std::process;
 
 pub(crate) enum CliCiPlatform {
@@ -40,19 +37,9 @@ impl std::str::FromStr for CliCiPlatform {
 }
 
 pub fn run<F: FnOnce() -> rla::Result<()>>(f: F) {
-    let mut log_builder = env_logger::Builder::new();
-
-    if let Ok(s) = env::var("RLA_LOG") {
-        log_builder.parse(&s);
-    } else {
-        log_builder.filter(None, log::LevelFilter::Info);
-    }
-
-    if let Ok(s) = env::var("RLA_LOG_STYLE") {
-        log_builder.parse_write_style(&s);
-    }
-
-    log_builder.init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_env("RLA_LOG"))
+        .init();
 
     log_and_exit_error(|| f());
 }

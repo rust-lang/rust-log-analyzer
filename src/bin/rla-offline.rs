@@ -6,11 +6,10 @@
 )]
 
 extern crate brotli;
-extern crate env_logger;
 #[macro_use]
 extern crate failure;
 #[macro_use]
-extern crate log;
+extern crate tracing;
 extern crate rust_log_analyzer as rla;
 extern crate walkdir;
 
