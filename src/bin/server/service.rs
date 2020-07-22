@@ -1,4 +1,4 @@
-use super::QueueItem;
+use super::{QueueItem, QueueItemKind};
 
 use crate::rla;
 use futures::{future, Future, Stream};
@@ -68,7 +68,17 @@ impl RlaService {
             }
         };
 
-        match event {
+        let delivery_header = headers
+            .get("X-GitHub-Delivery")
+            .and_then(|s| s.to_str().ok())
+            .map(|s| s.to_string());
+        let delivery_id = if let Some(id) = delivery_header {
+            id
+        } else {
+            return reply(StatusCode::BAD_REQUEST, "Missing delivery ID.\n");
+        };
+
+        let item_kind = match event {
             "status" => {
                 let payload = match serde_json::from_slice(body) {
                     Ok(p) => p,
@@ -77,17 +87,7 @@ impl RlaService {
                         return reply(StatusCode::BAD_REQUEST, "Failed to decode payload.\n");
                     }
                 };
-
-                match self.queue.send(QueueItem::GitHubStatus(payload)) {
-                    Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
-                    Err(e) => {
-                        error!("Failed to queue payload: {}", e);
-                        reply(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Failed to process the event.\n",
-                        )
-                    }
-                }
+                QueueItemKind::GitHubStatus(payload)
             }
             "check_run" => {
                 let payload = match serde_json::from_slice(body) {
@@ -98,24 +98,30 @@ impl RlaService {
                     }
                 };
 
-                match self.queue.send(QueueItem::GitHubCheckRun(payload)) {
-                    Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
-                    Err(e) => {
-                        error!("Failed to queue payload: {}", e);
-                        reply(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Failed to process the event.\n",
-                        )
-                    }
-                }
+                QueueItemKind::GitHubCheckRun(payload)
             }
             "issue_comment" => {
                 debug!("Ignoring 'issue_comment' event.");
-                reply(StatusCode::OK, "Event ignored.\n")
+                return reply(StatusCode::OK, "Event ignored.\n");
             }
             _ => {
                 warn!("Unexpected '{}' event.", event);
-                reply(StatusCode::BAD_REQUEST, "Unexpected event.\n")
+                return reply(StatusCode::BAD_REQUEST, "Unexpected event.\n");
+            }
+        };
+
+        let item = QueueItem {
+            kind: item_kind,
+            delivery_id,
+        };
+        match self.queue.send(item) {
+            Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
+            Err(e) => {
+                error!("Failed to queue payload: {}", e);
+                reply(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to process the event.\n",
+                )
             }
         }
     }
