@@ -5,13 +5,12 @@
     clippy::useless_let_if_seq
 )]
 
-extern crate env_logger;
 #[macro_use]
 extern crate failure;
 extern crate futures;
 extern crate hyper;
 #[macro_use]
-extern crate log;
+extern crate tracing;
 extern crate crossbeam;
 extern crate regex;
 extern crate rust_log_analyzer as rla;

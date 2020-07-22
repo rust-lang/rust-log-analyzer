@@ -1,4 +1,4 @@
-use super::QueueItem;
+use super::{QueueItem, QueueItemKind};
 
 use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
@@ -78,7 +78,16 @@ impl Worker {
     pub fn main(&mut self) -> rla::Result<()> {
         loop {
             let item = self.queue.recv()?;
-            match self.process(item) {
+
+            let span = span!(
+                tracing::Level::INFO,
+                "request",
+                delivery = item.delivery_id.as_str(),
+                build_id = tracing::field::Empty
+            );
+            let _enter = span.enter();
+
+            match self.process(item, &span) {
                 Ok(()) => (),
                 Err(e) => error!("Processing queue item failed: {}", e),
             }
@@ -92,9 +101,9 @@ impl Worker {
         self.secondary_repos.iter().find(|r| *r == repo).is_some()
     }
 
-    fn process(&mut self, item: QueueItem) -> rla::Result<()> {
-        let (repo, build_id, outcome) = match &item {
-            QueueItem::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
+    fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<()> {
+        let (repo, build_id, outcome) = match &item.kind {
+            QueueItemKind::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
                 Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
                     (&ev.repository.full_name, id, None)
                 }
@@ -106,7 +115,7 @@ impl Worker {
                     return Ok(());
                 }
             },
-            QueueItem::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
+            QueueItemKind::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
                 Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
                     (&ev.repository.full_name, id, Some(&ev.check_run.outcome))
                 }
@@ -120,10 +129,12 @@ impl Worker {
             },
         };
 
-        info!("build {}: started processing", build_id);
+        span.record("build_id", &build_id);
+
+        info!("started processing");
 
         if self.seen.contains(&build_id) {
-            info!("build {}: ignoring recently seen id", build_id);
+            info!("ignoring recently seen id");
             return Ok(());
         }
         let query_from = if self.query_builds_from_primary_repo {
@@ -138,34 +149,31 @@ impl Worker {
             _ => build.outcome(),
         };
 
-        debug!("build {}: current outcome: {:?}", build_id, outcome);
-        debug!("build {}: PR number: {:?}", build_id, build.pr_number());
-        debug!("build {}: branch name: {:?}", build_id, build.pr_number());
+        debug!("current outcome: {:?}", outcome);
+        debug!("PR number: {:?}", build.pr_number());
+        debug!("branch name: {:?}", build.branch_name());
 
         if !outcome.is_finished() {
-            info!("build {}: ignoring in-progress build", build_id);
+            info!("ignoring in-progress build");
             return Ok(());
         }
 
         // Avoid processing the same build multiple times.
-        info!("build {}: marked as seen", build_id);
+        info!("marked as seen");
         self.seen.push_front(build_id);
         if self.seen.len() > KEEP_IDS {
             self.seen.pop_back();
         }
 
         if !outcome.is_passed() {
-            info!("build {}: preparing report", build_id);
+            info!("preparing report");
             self.report_failed(build.as_ref())?;
         }
         if build.pr_number().is_none() && build.branch_name() == "auto" {
-            info!("build {}: learning from the log", build_id);
+            info!("learning from the log");
             self.learn(build.as_ref())?;
         } else {
-            info!(
-                "build {}: did not learn as it's not an auto build",
-                build_id
-            );
+            info!("did not learn as it's not an auto build");
         }
 
         Ok(())

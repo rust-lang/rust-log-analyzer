@@ -1,7 +1,6 @@
 use crate::offline;
 use crate::rla;
 
-use log;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -61,19 +60,20 @@ pub fn dir(
 
         let now = Instant::now();
 
-        let level = if now - last_print >= progress_every {
+        if now - last_print >= progress_every {
             last_print = now;
-            log::Level::Debug
+            debug!(
+                "Extracting errors from {} [{}/?]...",
+                entry.path().display(),
+                count
+            );
         } else {
-            log::Level::Trace
-        };
-
-        log!(
-            level,
-            "Extracting errors from {} [{}/?]...",
-            entry.path().display(),
-            count
-        );
+            trace!(
+                "Extracting errors from {} [{}/?]...",
+                entry.path().display(),
+                count
+            );
+        }
 
         let log = offline::fs::load_maybe_compressed(entry.path())?;
         let lines = load_lines(ci, &log);

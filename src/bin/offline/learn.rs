@@ -1,7 +1,6 @@
 use crate::offline;
 use crate::rla;
 
-use log;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::Instant;
@@ -30,19 +29,12 @@ pub fn learn(
 
         let now = Instant::now();
 
-        let level = if now - last_print >= progress_every {
+        if now - last_print >= progress_every {
             last_print = now;
-            log::Level::Debug
+            debug!("Learning from {} [{}/?]...", input.path().display(), count);
         } else {
-            log::Level::Trace
-        };
-
-        log!(
-            level,
-            "Learning from {} [{}/?]...",
-            input.path().display(),
-            count
-        );
+            trace!("Learning from {} [{}/?]...", input.path().display(), count);
+        }
 
         let data = offline::fs::load_maybe_compressed(input.path())?;
 
