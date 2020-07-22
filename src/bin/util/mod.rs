@@ -38,6 +38,8 @@ impl std::str::FromStr for CliCiPlatform {
 
 pub fn run<F: FnOnce() -> rla::Result<()>>(f: F) {
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_ansi(atty::is(atty::Stream::Stderr))
         .with_env_filter(tracing_subscriber::EnvFilter::from_env("RLA_LOG"))
         .init();
 
