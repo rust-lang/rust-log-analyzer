@@ -140,7 +140,7 @@ impl Worker {
 
         debug!("build {}: current outcome: {:?}", build_id, outcome);
         debug!("build {}: PR number: {:?}", build_id, build.pr_number());
-        debug!("build {}: branch name: {:?}", build_id, build.pr_number());
+        debug!("build {}: branch name: {:?}", build_id, build.branch_name());
 
         if !outcome.is_finished() {
             info!("build {}: ignoring in-progress build", build_id);
