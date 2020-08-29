@@ -34,6 +34,6 @@ pub mod sanitize;
 
 pub use self::index::Index;
 
-pub static USER_AGENT: &str = concat!("rust-ops/rust-log-analyzer ", env!("CARGO_PKG_VERSION"));
+pub static USER_AGENT: &str = concat!("rust-lang/rust-log-analyzer ", env!("CARGO_PKG_VERSION"));
 
 pub type Result<T> = std::result::Result<T, failure::Error>;
