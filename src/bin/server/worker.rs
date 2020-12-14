@@ -30,7 +30,7 @@ pub struct Worker {
     extract_config: rla::extract::Config,
     github: rla::github::Client,
     queue: crossbeam::channel::Receiver<QueueItem>,
-    seen: VecDeque<u64>,
+    notified: VecDeque<u64>,
     ci: Box<dyn CiPlatform + Send>,
     repo: String,
     secondary_repos: Vec<String>,
@@ -66,7 +66,7 @@ impl Worker {
             index_file,
             extract_config: Default::default(),
             github: rla::github::Client::new()?,
-            seen: VecDeque::new(),
+            notified: VecDeque::new(),
             queue,
             ci,
             repo,
@@ -133,8 +133,8 @@ impl Worker {
 
         info!("started processing");
 
-        if self.seen.contains(&build_id) {
-            info!("ignoring recently seen id");
+        if self.notified.contains(&build_id) {
+            info!("ignoring recently notified build");
             return Ok(());
         }
         let query_from = if self.query_builds_from_primary_repo {
@@ -159,15 +159,15 @@ impl Worker {
         }
 
         // Avoid processing the same build multiple times.
-        info!("marked as seen");
-        self.seen.push_front(build_id);
-        if self.seen.len() > KEEP_IDS {
-            self.seen.pop_back();
-        }
-
         if !outcome.is_passed() {
             info!("preparing report");
             self.report_failed(build.as_ref())?;
+
+            info!("marked as notified");
+            self.notified.push_front(build_id);
+            if self.notified.len() > KEEP_IDS {
+                self.notified.pop_back();
+            }
         }
         if build.pr_number().is_none() && build.branch_name() == "auto" {
             info!("learning from the log");
