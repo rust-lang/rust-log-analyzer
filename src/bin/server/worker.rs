@@ -297,7 +297,7 @@ impl Worker {
 
             if self.recently_learned.recently_witnessed(&job.id()) {
                 info!("Skipped already processed {}", job);
-                return Ok(());
+                continue;
             }
 
             debug!("Processing {}...", job);
