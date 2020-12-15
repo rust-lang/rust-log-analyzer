@@ -153,7 +153,7 @@ impl RlaService {
 }
 
 fn reply(status: StatusCode, body: &'static str) -> ResponseFuture {
-    info!("response: {} {:?}", status.as_u16(), body.trim());
+    trace!("response: {} {:?}", status.as_u16(), body.trim());
     let mut resp = Response::new(Body::from(body));
     *resp.status_mut() = status;
     Box::new(future::ok(resp))
