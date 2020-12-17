@@ -259,29 +259,22 @@ impl Worker {
         };
 
         let opening = match log_variables.job_name {
-            Some(job_name) => format!("The job `{}` of your PR", job_name),
-            None => "Your PR".to_owned(),
+            Some(job_name) => format!("The job **`{}`**", job_name),
+            None => "A job".to_owned(),
         };
 
         let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
-        let pretty_log_url = format!(
-            "https://rust-lang.github.io/rust-log-analyzer/log-viewer/#{}",
-            &log_url
-        );
-        let raw_log_url = log_url;
         self.github.post_comment(repo, pr, &format!(r#"
-{opening} [failed]({html_url}) ([pretty log]({log_url}), [raw log]({raw_log_url})). Through arcane magic we have determined that the following fragments from the build log may contain information about the problem.
+{opening} failed! Check out the build log: [(web)]({html_url}) [(plain)]({log_url})
 
-<details><summary><i>Click to expand the log.</i></summary>
+<details><summary><i>Click to see the possible cause of the failure (guessed by this bot)</i></summary>
 
 ```plain
 {log}
 ```
 
-</details><p></p>
-
-[I'm a bot](https://github.com/rust-lang/rust-log-analyzer)! I can only do what humans tell me to, so if this was not helpful or you have suggestions for improvements, please ping or otherwise contact **`@rust-lang/infra`**. ([Feature Requests](https://github.com/rust-lang/rust-log-analyzer/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request))
-        "#, opening = opening, html_url = job.html_url(), log_url = pretty_log_url, raw_log_url = raw_log_url, log = extracted))?;
+</details>
+        "#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted))?;
 
         info!("marked build {} as recently notified", build_id);
         self.recently_notified.store(build_id);
