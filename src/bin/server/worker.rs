@@ -259,8 +259,8 @@ impl Worker {
         };
 
         let opening = match log_variables.job_name {
-            Some(job_name) => format!("The job **`{}`** of your PR", job_name),
-            None => "Your PR".to_owned(),
+            Some(job_name) => format!("The job **`{}`**", job_name),
+            None => "A job".to_owned(),
         };
 
         let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
