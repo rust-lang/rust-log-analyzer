@@ -32,10 +32,7 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
     // Cargo downloads crates in unpredictable order
     ("Downloading crates ...", "Compiling"),
     // Skip all groups invoking git commands
-    (
-        "[command]/usr/bin/git",
-        "##[endgroup]",
-    ),
+    ("[command]/usr/bin/git", "##[endgroup]"),
 ];
 
 lazy_static! {
