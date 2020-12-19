@@ -6,14 +6,6 @@ use std::mem;
 /// Plaintext patterns which, if found in a line, cause all remaining lines to be ignored until the
 /// corresponding pattern (second tuple element) is found in a line.
 static IGNORE_BLOCK: &[(&str, &str)] = &[
-    // apt-get install's actual output is unpredictable
-    ("+ apt-get install", " removed; done."),
-    // The network speeds Kb/s / Mb/s mess things up
-    ("Cloning into 'rust-lang/rust'...", "git checkout -qf "),
-    // Skip the clone and unpack section
-    ("remote: Enumerating objects", "Note: checking out"),
-    // The output can vary wildly
-    ("Disk usage after running", "travis_time:end:"),
     // Skip environment varialbes
     (
         "##[group]Run src/ci/scripts/dump-environment.sh",
