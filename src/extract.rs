@@ -16,23 +16,22 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
     ("Disk usage after running", "travis_time:end:"),
     // Skip environment varialbes
     (
-        "##[section]Starting: Show environment variables",
-        "##[section]Finishing: Show environment variables",
+        "##[group]Run src/ci/scripts/dump-environment.sh",
+        "##[group]",
     ),
     // Skip initialization as it involves submodules, which can change often
     (
-        "dirname /home/vsts/work/1/s/src/ci/init_repo.sh",
-        "##[section]Finishing: Check out submodules",
+        "##[group]Run src/ci/scripts/checkout-submodules.sh",
+        "##[group]",
     ),
     // Skip AWS cli installation, it involves network (so changes)
-    (
-        "##[section]Starting: Install awscli",
-        "##[section]Finishing: Install awscli",
-    ),
+    ("##[group]Run src/ci/scripts/install-awscli.sh", "##[group]"),
     // Cargo downloads crates in unpredictable order
     ("Downloading crates ...", "Compiling"),
     // Skip all groups invoking git commands
     ("[command]/usr/bin/git", "##[endgroup]"),
+    // Skip clock drift checks
+    ("== clock drift check ==", "== end clock drift check =="),
 ];
 
 lazy_static! {
