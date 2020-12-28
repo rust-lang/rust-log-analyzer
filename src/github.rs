@@ -2,6 +2,7 @@ use super::Result;
 use crate::ci::Outcome;
 use hyper::header;
 use reqwest;
+use serde::{de::DeserializeOwned, Serialize};
 use std::env;
 use std::str;
 use std::time::Duration;
@@ -83,10 +84,6 @@ pub struct CommitParent {
     pub sha: String,
 }
 
-pub struct Client {
-    internal: reqwest::Client,
-}
-
 #[derive(Serialize)]
 struct Comment<'a> {
     body: &'a str,
@@ -123,6 +120,55 @@ pub struct App {
 #[derive(Deserialize)]
 pub struct Repository {
     pub full_name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestAction {
+    Opened,
+    Edited,
+    Closed,
+    Assigned,
+    Unassigned,
+    ReviewRequested,
+    ReviewRequestRemoved,
+    ReadyForReview,
+    Labeled,
+    Unlabeled,
+    Synchronize,
+    Locked,
+    Unlocked,
+    Reopened,
+}
+
+#[derive(Deserialize)]
+pub struct PullRequestEvent {
+    pub action: PullRequestAction,
+    pub number: u32,
+    pub repository: Repository,
+}
+
+#[derive(Deserialize)]
+struct GraphResponse<T> {
+    data: T,
+    #[serde(default)]
+    errors: Vec<GraphError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphError {
+    message: String,
+    path: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphPageInfo {
+    end_cursor: Option<String>,
+}
+
+pub struct Client {
+    internal: reqwest::Client,
 }
 
 impl Client {
@@ -192,8 +238,131 @@ impl Client {
         Ok(())
     }
 
+    pub fn hide_own_comments(&self, repo: &str, pull_request_id: u32) -> Result<()> {
+        const QUERY: &str = "query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $pr) {
+                        comments(first: 100, after: $cursor) {
+                            nodes {
+                                id
+                                isMinimized
+                                viewerDidAuthor
+                            }
+                            pageInfo {
+                                endCursor
+                            }
+                        }
+                    }
+                }
+            }";
+
+        #[derive(Debug, Deserialize)]
+        struct Response {
+            repository: ResponseRepo,
+        }
+        #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResponseRepo {
+            pull_request: ResponsePR,
+        }
+        #[derive(Debug, Deserialize)]
+        struct ResponsePR {
+            comments: ResponseComments,
+        }
+        #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResponseComments {
+            nodes: Vec<ResponseComment>,
+            page_info: GraphPageInfo,
+        }
+        #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResponseComment {
+            id: String,
+            is_minimized: bool,
+            viewer_did_author: bool,
+        }
+
+        let (owner, repo) = if let Some(mid) = repo.find('/') {
+            let split = repo.split_at(mid);
+            (split.0, split.1.trim_start_matches('/'))
+        } else {
+            bail!("invalid repository name: {}", repo);
+        };
+
+        let mut comments = Vec::new();
+        let mut cursor = None;
+        loop {
+            let mut resp: Response = self.graphql(
+                QUERY,
+                serde_json::json!({
+                    "owner": owner,
+                    "repo": repo,
+                    "pr": pull_request_id,
+                    "cursor": cursor,
+                }),
+            )?;
+            cursor = resp.repository.pull_request.comments.page_info.end_cursor;
+            comments.append(&mut resp.repository.pull_request.comments.nodes);
+
+            if cursor.is_none() {
+                break;
+            }
+        }
+
+        for comment in &comments {
+            if comment.viewer_did_author && !comment.is_minimized {
+                self.hide_comment(&comment.id, "OUTDATED")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn hide_comment(&self, node_id: &str, reason: &str) -> Result<()> {
+        #[derive(Deserialize)]
+        struct MinimizeData {}
+
+        const MINIMIZE: &str = "mutation($node_id: ID!, $reason: ReportedContentClassifiers!) {
+            minimizeComment(input: {subjectId: $node_id, classifier: $reason}) {
+                __typename
+            }
+        }";
+
+        self.graphql::<MinimizeData, _>(
+            MINIMIZE,
+            serde_json::json!({
+                "node_id": node_id,
+                "reason": reason,
+            }),
+        )?;
+        Ok(())
+    }
+
     pub fn internal(&self) -> &reqwest::Client {
         &self.internal
+    }
+
+    fn graphql<T: DeserializeOwned, V: Serialize>(&self, query: &str, variables: V) -> Result<T> {
+        #[derive(Serialize)]
+        struct GraphPayload<'a, V> {
+            query: &'a str,
+            variables: V,
+        }
+
+        let response: GraphResponse<T> = self
+            .internal
+            .post(&format!("{}/graphql", API_BASE))
+            .json(&GraphPayload { query, variables })
+            .send()?
+            .error_for_status()?
+            .json()?;
+
+        if response.errors.is_empty() {
+            Ok(response.data)
+        } else {
+            dbg!(&response.errors);
+            bail!("GraphQL query failed: {}", response.errors[0].message);
+        }
     }
 }
 
