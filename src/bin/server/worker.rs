@@ -115,6 +115,7 @@ impl Worker {
                     return Ok(());
                 }
             },
+            QueueItemKind::GitHubPullRequest(ev) => return self.process_pr(ev),
         };
 
         span.record("build_id", &build_id);
@@ -322,6 +323,15 @@ impl Worker {
 
         self.index.save(&self.index_file)?;
 
+        Ok(())
+    }
+
+    fn process_pr(&self, e: &rla::github::PullRequestEvent) -> rla::Result<()> {
+        // Hide all comments by the bot when a new commit is pushed.
+        if let rla::github::PullRequestAction::Synchronize = e.action {
+            self.github
+                .hide_own_comments(&e.repository.full_name, e.number)?;
+        }
         Ok(())
     }
 }

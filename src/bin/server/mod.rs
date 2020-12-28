@@ -14,4 +14,5 @@ pub struct QueueItem {
 pub enum QueueItemKind {
     GitHubStatus(rla::github::CommitStatusEvent),
     GitHubCheckRun(rla::github::CheckRunEvent),
+    GitHubPullRequest(rla::github::PullRequestEvent),
 }

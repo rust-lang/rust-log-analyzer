@@ -100,6 +100,13 @@ impl RlaService {
 
                 QueueItemKind::GitHubCheckRun(payload)
             }
+            "pull_request" => match serde_json::from_slice(body) {
+                Ok(payload) => QueueItemKind::GitHubPullRequest(payload),
+                Err(err) => {
+                    error!("Failed to decode 'pull_request' webhook payload: {}", err);
+                    return reply(StatusCode::BAD_REQUEST, "Failed to decode payload\n");
+                }
+            },
             "issue_comment" => {
                 debug!("Ignoring 'issue_comment' event.");
                 return reply(StatusCode::OK, "Event ignored.\n");

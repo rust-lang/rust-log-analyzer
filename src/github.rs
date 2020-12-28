@@ -123,6 +123,32 @@ pub struct Repository {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestAction {
+    Opened,
+    Edited,
+    Closed,
+    Assigned,
+    Unassigned,
+    ReviewRequested,
+    ReviewRequestRemoved,
+    ReadyForReview,
+    Labeled,
+    Unlabeled,
+    Synchronize,
+    Locked,
+    Unlocked,
+    Reopened,
+}
+
+#[derive(Deserialize)]
+pub struct PullRequestEvent {
+    pub action: PullRequestAction,
+    pub number: u32,
+    pub repository: Repository,
+}
+
+#[derive(Deserialize)]
 struct GraphResponse<T> {
     data: T,
     #[serde(default)]
@@ -213,8 +239,7 @@ impl Client {
     }
 
     pub fn hide_own_comments(&self, repo: &str, pull_request_id: u32) -> Result<()> {
-        const QUERY: &str =
-            "query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
+        const QUERY: &str = "query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
                 repository(owner: $owner, name: $repo) {
                     pullRequest(number: $pr) {
                         comments(first: 100, after: $cursor) {
