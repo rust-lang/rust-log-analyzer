@@ -158,7 +158,6 @@ struct GraphResponse<T> {
 #[derive(Debug, Deserialize)]
 struct GraphError {
     message: String,
-    path: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
