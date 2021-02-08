@@ -282,6 +282,8 @@ impl Client {
             viewer_did_author: bool,
         }
 
+        debug!("started hiding comments in {}#{}", repo, pull_request_id);
+
         let (owner, repo) = if let Some(mid) = repo.find('/') {
             let split = repo.split_at(mid);
             (split.0, split.1.trim_start_matches('/'))
@@ -326,6 +328,8 @@ impl Client {
                 __typename
             }
         }";
+
+        trace!("hiding comment {}", node_id);
 
         self.graphql::<MinimizeData, _>(
             MINIMIZE,
