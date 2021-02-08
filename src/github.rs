@@ -331,7 +331,7 @@ impl Client {
 
         trace!("hiding comment {}", node_id);
 
-        self.graphql::<MinimizeData, _>(
+        self.graphql::<Option<MinimizeData>, _>(
             MINIMIZE,
             serde_json::json!({
                 "node_id": node_id,
