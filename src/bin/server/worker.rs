@@ -265,7 +265,17 @@ impl Worker {
         };
 
         let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
-        self.github.post_comment(repo, pr, &format!(r#"
+
+        let comment_str = if extracted.trim().is_empty() {
+            format!(
+                r#"{opening} failed! Check out the build log: [(web)]({html_url}) [(plain)]({log_url})"#,
+                opening = opening,
+                html_url = job.html_url(),
+                log_url = log_url,
+            )
+        } else {
+            format!(
+                r#"\
 {opening} failed! Check out the build log: [(web)]({html_url}) [(plain)]({log_url})
 
 <details><summary><i>Click to see the possible cause of the failure (guessed by this bot)</i></summary>
@@ -274,8 +284,15 @@ impl Worker {
 {log}
 ```
 
-</details>
-        "#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted))?;
+</details>"#,
+                opening = opening,
+                html_url = job.html_url(),
+                log_url = log_url,
+                log = extracted,
+            )
+        };
+
+        self.github.post_comment(repo, pr, &comment_str)?;
 
         info!("marked build {} as recently notified", build_id);
         self.recently_notified.store(build_id);
