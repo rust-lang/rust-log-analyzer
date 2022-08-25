@@ -275,6 +275,7 @@ impl Worker {
 ```
 
 </details>
+@bors r-
         "#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted))?;
 
         info!("marked build {} as recently notified", build_id);
