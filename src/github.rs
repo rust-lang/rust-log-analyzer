@@ -386,10 +386,12 @@ pub fn verify_webhook_signature(secret: &[u8], signature: Option<&str>, body: &[
 
     let decoded_signature = hex::decode(signature)?;
 
-    let mut mac = Hmac::<Sha1>::new_varkey(secret).unwrap();
-    mac.input(body);
+    let mut mac = Hmac::<Sha1>::new_from_slice(secret).unwrap();
+    mac.update(body);
+    let result = mac.finalize();
+    let result_bytes = result.into_bytes();
 
-    if mac.result().is_equal(&decoded_signature) {
+    if result_bytes.as_slice() == decoded_signature {
         Ok(())
     } else {
         bail!("Signature mismatch.");

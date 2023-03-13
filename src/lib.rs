@@ -12,7 +12,6 @@ extern crate bincode;
 extern crate failure;
 extern crate fnv;
 extern crate hex;
-extern crate hmac;
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
@@ -21,7 +20,6 @@ extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate sha1;
 #[macro_use]
 extern crate tracing;
 
