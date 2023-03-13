@@ -1,7 +1,6 @@
 use super::Result;
 use crate::ci::Outcome;
-use hyper::header;
-use reqwest;
+use reqwest::{blocking::Client as ReqwestClient, header};
 use serde::{de::DeserializeOwned, Serialize};
 use std::env;
 use std::str;
@@ -167,7 +166,7 @@ struct GraphPageInfo {
 }
 
 pub struct Client {
-    internal: reqwest::Client,
+    internal: ReqwestClient,
 }
 
 impl Client {
@@ -189,7 +188,7 @@ impl Client {
             header::HeaderValue::from_str(&format!("token {}", token))?,
         );
 
-        let client = reqwest::Client::builder()
+        let client = ReqwestClient::builder()
             .default_headers(headers)
             .referer(false)
             .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
@@ -199,7 +198,7 @@ impl Client {
     }
 
     pub fn query_pr(&self, repo: &str, pr_id: u32) -> Result<Pr> {
-        let mut resp = self
+        let resp = self
             .internal
             .get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str())
             .send()?;
@@ -212,7 +211,7 @@ impl Client {
     }
 
     pub fn query_commit(&self, repo: &str, sha: &str) -> Result<CommitMeta> {
-        let mut resp = self
+        let resp = self
             .internal
             .get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str())
             .send()?;
@@ -341,7 +340,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn internal(&self) -> &reqwest::Client {
+    pub fn internal(&self) -> &ReqwestClient {
         &self.internal
     }
 

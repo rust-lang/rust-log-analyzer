@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::Path;
 
+use reqwest::blocking::Client as ReqwestClient;
+
 const LOG_DL_MAX_ATTEMPTS: u32 = 3;
 
 pub fn cat(input: &Path, strip_control: bool, decode_utf8: bool) -> rla::Result<()> {
@@ -37,7 +39,7 @@ pub fn download(
     only_passed: bool,
     only_failed: bool,
 ) -> rla::Result<()> {
-    let client = reqwest::Client::new();
+    let client = ReqwestClient::new();
     let filter_branches = filter_branches
         .iter()
         .map(|s| s.as_str())

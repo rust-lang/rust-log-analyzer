@@ -2,7 +2,8 @@ use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::github::{BuildOutcome, CheckRun};
 use crate::Result;
 use regex::Regex;
-use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
+use reqwest::blocking::{Client as ReqwestClient, RequestBuilder, Response};
+use reqwest::Method;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -27,7 +28,7 @@ impl GHABuild {
         client.paginated(
             Method::GET,
             &format!("repos/{}/actions/runs/{}/jobs", repo, run.id),
-            &mut |mut resp| {
+            &mut |resp| {
                 #[derive(Deserialize)]
                 struct JobsResult {
                     jobs: Vec<WorkflowJob>,
@@ -219,7 +220,7 @@ impl CiPlatform for Client {
         self.paginated(
             Method::GET,
             &format!("repos/{}/actions/runs", repo),
-            &mut |mut resp| {
+            &mut |resp| {
                 let mut partial_runs: AllRuns = resp.json()?;
                 for run in partial_runs.workflow_runs.drain(..) {
                     if !run.outcome.is_finished() {

@@ -1,4 +1,4 @@
-use reqwest::RequestBuilder;
+use reqwest::blocking::RequestBuilder;
 use std::borrow::Cow;
 use std::io::Read;
 
@@ -73,7 +73,7 @@ pub trait CiPlatform {
 pub fn download_log(
     ci: &dyn CiPlatform,
     job: &dyn Job,
-    client: &reqwest::Client,
+    client: &reqwest::blocking::Client,
 ) -> Option<Result<Vec<u8>>> {
     if let Some(url) = job.log_api_url() {
         let mut resp = match ci.authenticate_request(client.get(&url)).send() {
