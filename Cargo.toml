@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 aho-corasick = "0.6"
-atomicwrites = "0.2"
+atomicwrites = "0.3"
 bincode = "1.0"
 brotli = "1.2"
 failure = "0.1"
