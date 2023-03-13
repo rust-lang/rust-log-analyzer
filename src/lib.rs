@@ -5,8 +5,6 @@
     clippy::useless_let_if_seq
 )]
 
-extern crate aho_corasick;
-extern crate atomicwrites;
 extern crate bincode;
 #[macro_use]
 extern crate failure;

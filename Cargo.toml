@@ -6,7 +6,7 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-aho-corasick = "0.6"
+aho-corasick = "0.7"
 atomicwrites = "0.3"
 bincode = "1.0"
 brotli = "1.2"
