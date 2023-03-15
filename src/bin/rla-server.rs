@@ -16,73 +16,77 @@ extern crate regex;
 extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
-use hyper::rt::Future;
+use clap::Parser;
 use std::process;
 use std::sync::Arc;
 use std::thread;
-use structopt::StructOpt;
 
 mod server;
 mod util;
 
-#[derive(StructOpt)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[command(
     name = "Rust Log Analyzer WebHook Server",
     about = "A http server that listens for GitHub webhooks and posts comments with potential causes on failed builds."
 )]
 struct Cli {
-    #[structopt(
-        short = "p",
+    #[arg(
+        short = 'p',
         long = "port",
         default_value = "8080",
         help = "The port to listen on for HTTP connections."
     )]
     port: u16,
-    #[structopt(
-        short = "b",
+    #[arg(
+        short = 'b',
         long = "bind",
         default_value = "127.0.0.1",
         help = "The address to bind."
     )]
     bind: std::net::IpAddr,
-    #[structopt(
-        short = "i",
+    #[arg(
+        short = 'i',
         long = "index-file",
         help = "The index file to read / write. An existing index file is updated."
     )]
     index_file: std::path::PathBuf,
-    #[structopt(
+    #[arg(
         long = "debug-post",
         help = "Post all comments to the given issue instead of the actual PR. Format: \"user/repo#id\""
     )]
     debug_post: Option<String>,
-    #[structopt(
+    #[arg(
         long = "webhook-verify",
         help = "If enabled, web hooks that cannot be verified are rejected."
     )]
     webhook_verify: bool,
-    #[structopt(long = "ci", help = "CI platform to interact with.")]
+    #[arg(long = "ci", help = "CI platform to interact with.")]
     ci: util::CliCiPlatform,
-    #[structopt(long = "repo", help = "Repository to interact with.")]
+    #[arg(long = "repo", help = "Repository to interact with.")]
     repo: String,
-    #[structopt(
+    #[arg(
         long = "secondary-repo",
         help = "Secondary repositories to listen for builds.",
-        required = false,
-        multiple = true
+        required = false
     )]
     secondary_repos: Vec<String>,
-    #[structopt(
+    #[arg(
         long = "query-builds-from-primary-repo",
         help = "Always query builds from the primary repo instead of the repo receiving them."
     )]
     query_builds_from_primary_repo: bool,
 }
 
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Cli::command().debug_assert()
+}
+
 fn main() {
     dotenv::dotenv().ok();
     util::run(|| {
-        let args = Cli::from_args();
+        let args = Cli::parse();
 
         let addr = std::net::SocketAddr::new(args.bind, args.port);
 
@@ -111,14 +115,24 @@ fn main() {
             process::exit(0);
         });
 
-        let server = hyper::server::Server::bind(&addr).serve(move || {
-            let s = service.clone();
-            hyper::service::service_fn(move |req| s.call(req))
-        });
+        let s = service.clone();
+        let server =
+            hyper::server::Server::bind(&addr).serve(hyper::service::make_service_fn(move |_| {
+                let s = s.clone();
+                async move {
+                    Ok::<_, hyper::Error>(hyper::service::service_fn(move |req| {
+                        let s = s.clone();
+                        async move { s.call(req).await }
+                    }))
+                }
+            }));
 
-        hyper::rt::run(server.map_err(|e| {
-            error!("server error: {}", e);
-        }));
+        tokio::runtime::Runtime::new()?
+            .block_on(server)
+            .map_err(|e| {
+                error!("server error: {}", e);
+                e
+            })?;
 
         Ok(())
     });

@@ -37,7 +37,7 @@ pub fn download(
     only_passed: bool,
     only_failed: bool,
 ) -> rla::Result<()> {
-    let client = reqwest::Client::new();
+    let client = reqwest::blocking::Client::new();
     let filter_branches = filter_branches
         .iter()
         .map(|s| s.as_str())

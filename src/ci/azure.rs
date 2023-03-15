@@ -2,7 +2,8 @@
 use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::Result;
 use failure::ResultExt;
-use reqwest::{Client as ReqwestClient, Method, Response, StatusCode};
+use reqwest::blocking::{Client as ReqwestClient, Response};
+use reqwest::{Method, StatusCode};
 use std::borrow::Cow;
 use std::fmt;
 use std::io::Read;
@@ -183,7 +184,8 @@ impl AzureBuild {
         if resp.status() == StatusCode::NO_CONTENT {
             return Ok(None);
         }
-        let timeline: Timeline = resp.json().with_context(|_| format!("{:?}", resp))?;
+        let dbg = format!("{:?}", resp);
+        let timeline: Timeline = resp.json().with_context(|_| dbg)?;
         Ok(Some(AzureBuild {
             jobs: timeline
                 .records

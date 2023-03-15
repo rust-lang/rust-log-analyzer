@@ -1,5 +1,5 @@
 use crate::index::{Index, IndexData};
-use aho_corasick::{AcAutomaton, Automaton};
+use aho_corasick::AhoCorasick;
 use std::iter;
 use std::mem;
 
@@ -27,14 +27,14 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
 ];
 
 lazy_static! {
-    static ref IGNORE_BLOCK_START: AcAutomaton<&'static str> =
-        AcAutomaton::new(IGNORE_BLOCK.iter().map(|x| &x.0).cloned());
+    static ref IGNORE_BLOCK_START: AhoCorasick =
+        AhoCorasick::new(IGNORE_BLOCK.iter().map(|x| &x.0).cloned());
 }
 
 lazy_static! {
-    static ref IGNORE_BLOCK_END: Vec<AcAutomaton<&'static str>> = IGNORE_BLOCK
+    static ref IGNORE_BLOCK_END: Vec<AhoCorasick> = IGNORE_BLOCK
         .iter()
-        .map(|&s| AcAutomaton::new(iter::once(s.1)))
+        .map(|&s| AhoCorasick::new(iter::once(s.1)))
         .collect();
 }
 
@@ -72,7 +72,7 @@ enum State<'a> {
     SearchingSectionStart,
     SearchingOutlier,
     Printing,
-    Ignoring(&'a AcAutomaton<&'static str>),
+    Ignoring(&'a AhoCorasick),
 }
 
 #[derive(Copy, Clone)]
@@ -107,7 +107,7 @@ pub fn extract<'i, I: IndexData + 'i>(
     let mut trailing_context = 0;
 
     while i < lines.len() {
-        if let Some(m) = IGNORE_BLOCK_START.find(lines[i].line.sanitized()).next() {
+        if let Some(m) = IGNORE_BLOCK_START.find(lines[i].line.sanitized()) {
             trailing_context = 0;
 
             if let State::Printing = state {
@@ -116,13 +116,13 @@ pub fn extract<'i, I: IndexData + 'i>(
                 }
             }
 
-            state = State::Ignoring(&IGNORE_BLOCK_END[m.pati]);
+            state = State::Ignoring(&IGNORE_BLOCK_END[m.pattern()]);
             i += 1;
             continue;
         }
 
         if let State::Ignoring(a) = state {
-            if a.find(lines[i].line.sanitized()).next().is_some() {
+            if a.find(lines[i].line.sanitized()).is_some() {
                 state = State::SearchingSectionStart;
             }
 

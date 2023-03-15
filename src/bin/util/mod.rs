@@ -2,6 +2,7 @@ use crate::rla;
 use failure::ResultExt;
 use std::process;
 
+#[derive(Debug, Copy, Clone)]
 pub(crate) enum CliCiPlatform {
     Azure,
     Actions,

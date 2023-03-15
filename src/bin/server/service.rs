@@ -1,13 +1,10 @@
 use super::{QueueItem, QueueItemKind};
 
 use crate::rla;
-use futures::{future, Future, Stream};
 use hyper::{self, Body, Method, StatusCode};
 use hyper::{Request, Response};
 use serde_json;
 use std::env;
-
-type ResponseFuture = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send + 'static>;
 
 #[derive(Clone)]
 pub struct RlaService {
@@ -48,12 +45,12 @@ impl RlaService {
         })
     }
 
-    fn handle_webhook(
+    async fn handle_webhook(
         &self,
         event: &str,
         headers: &hyper::HeaderMap,
         body: &[u8],
-    ) -> ResponseFuture {
+    ) -> Result<Response<Body>, hyper::Error> {
         if let Some(ref secret) = self.github_webhook_secret {
             let sig = headers.get("X-Hub-Signature");
 
@@ -135,10 +132,7 @@ impl RlaService {
 }
 
 impl RlaService {
-    pub fn call(
-        &self,
-        req: Request<Body>,
-    ) -> Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send> {
+    pub async fn call(&self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         let (req, body) = req.into_parts();
         info!("request: {} {}", req.method, req.uri.path());
         match (req.method.clone(), req.uri.path()) {
@@ -146,9 +140,9 @@ impl RlaService {
             (Method::POST, "/") => {
                 if let Some(ev) = req.headers.get("X-GitHub-Event").cloned() {
                     let slf = self.clone();
-                    Box::new(body.concat2().and_then(move |body: hyper::Chunk| {
-                        slf.handle_webhook(ev.to_str().unwrap(), &req.headers, &body)
-                    }))
+                    let body = hyper::body::to_bytes(body).await?;
+                    slf.handle_webhook(ev.to_str().unwrap(), &req.headers, &body)
+                        .await
                 } else {
                     reply(StatusCode::BAD_REQUEST, "Missing X-GitHub-Event header.\n")
                 }
@@ -159,9 +153,9 @@ impl RlaService {
     }
 }
 
-fn reply(status: StatusCode, body: &'static str) -> ResponseFuture {
+fn reply(status: StatusCode, body: &'static str) -> Result<Response<Body>, hyper::Error> {
     trace!("response: {} {:?}", status.as_u16(), body.trim());
     let mut resp = Response::new(Body::from(body));
     *resp.status_mut() = status;
-    Box::new(future::ok(resp))
+    Ok(resp)
 }

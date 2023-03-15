@@ -1,7 +1,6 @@
 use super::Result;
 use crate::ci::Outcome;
 use hyper::header;
-use reqwest;
 use serde::{de::DeserializeOwned, Serialize};
 use std::env;
 use std::str;
@@ -167,7 +166,7 @@ struct GraphPageInfo {
 }
 
 pub struct Client {
-    internal: reqwest::Client,
+    internal: reqwest::blocking::Client,
 }
 
 impl Client {
@@ -189,17 +188,17 @@ impl Client {
             header::HeaderValue::from_str(&format!("token {}", token))?,
         );
 
-        let client = reqwest::Client::builder()
+        let client = reqwest::blocking::Client::builder()
             .default_headers(headers)
             .referer(false)
-            .timeout(Some(Duration::from_secs(TIMEOUT_SECS)))
+            .timeout(Duration::from_secs(TIMEOUT_SECS))
             .build()?;
 
         Ok(Client { internal: client })
     }
 
     pub fn query_pr(&self, repo: &str, pr_id: u32) -> Result<Pr> {
-        let mut resp = self
+        let resp = self
             .internal
             .get(format!("{}/repos/{}/pulls/{}", API_BASE, repo, pr_id).as_str())
             .send()?;
@@ -212,7 +211,7 @@ impl Client {
     }
 
     pub fn query_commit(&self, repo: &str, sha: &str) -> Result<CommitMeta> {
-        let mut resp = self
+        let resp = self
             .internal
             .get(format!("{}/repos/{}/commits/{}", API_BASE, repo, sha).as_str())
             .send()?;
@@ -341,7 +340,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn internal(&self) -> &reqwest::Client {
+    pub fn internal(&self) -> &reqwest::blocking::Client {
         &self.internal
     }
 
@@ -386,10 +385,10 @@ pub fn verify_webhook_signature(secret: &[u8], signature: Option<&str>, body: &[
 
     let decoded_signature = hex::decode(signature)?;
 
-    let mut mac = Hmac::<Sha1>::new_varkey(secret).unwrap();
-    mac.input(body);
+    let mut mac = Hmac::<Sha1>::new_from_slice(secret).unwrap();
+    mac.update(body);
 
-    if mac.result().is_equal(&decoded_signature) {
+    if mac.verify_slice(&decoded_signature).is_ok() {
         Ok(())
     } else {
         bail!("Signature mismatch.");
