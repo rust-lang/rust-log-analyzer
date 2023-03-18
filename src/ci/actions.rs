@@ -254,10 +254,12 @@ impl CiPlatform for Client {
     }
 
     fn authenticate_request(&self, request: RequestBuilder) -> RequestBuilder {
-        request.header(
-            reqwest::header::AUTHORIZATION,
-            format!("token {}", self.token),
-        )
+        request
+            .header(
+                reqwest::header::AUTHORIZATION,
+                format!("token {}", self.token),
+            )
+            .header(reqwest::header::USER_AGENT, format!("rust-log-analyzer"))
     }
 
     fn is_build_outcome_unreliable(&self) -> bool {
