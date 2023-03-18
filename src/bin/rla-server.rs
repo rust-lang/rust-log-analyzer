@@ -115,24 +115,20 @@ fn main() {
             process::exit(0);
         });
 
-        let s = service.clone();
-        let server =
-            hyper::server::Server::bind(&addr).serve(hyper::service::make_service_fn(move |_| {
-                let s = s.clone();
-                async move {
-                    Ok::<_, hyper::Error>(hyper::service::service_fn(move |req| {
-                        let s = s.clone();
-                        async move { s.call(req).await }
-                    }))
-                }
-            }));
-
-        tokio::runtime::Runtime::new()?
-            .block_on(server)
-            .map_err(|e| {
-                error!("server error: {}", e);
-                e
-            })?;
+        tokio::runtime::Runtime::new()?.block_on(async move {
+            let s = service.clone();
+            hyper::server::Server::bind(&addr)
+                .serve(hyper::service::make_service_fn(move |_| {
+                    let s = s.clone();
+                    async move {
+                        Ok::<_, hyper::Error>(hyper::service::service_fn(move |req| {
+                            let s = s.clone();
+                            async move { s.call(req).await }
+                        }))
+                    }
+                }))
+                .await
+        })?;
 
         Ok(())
     });
