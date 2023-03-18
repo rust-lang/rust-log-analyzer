@@ -5,7 +5,7 @@
 #  Build image  #
 #################
 
-FROM ubuntu:bionic AS build
+FROM ubuntu:22.04 AS build
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates \
@@ -42,7 +42,7 @@ RUN find -name "*.rs" -exec touch {} \; && cargo build --release
 #  Output image  #
 ##################
 
-FROM ubuntu:bionic AS binary
+FROM ubuntu:22.04 AS binary
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates
