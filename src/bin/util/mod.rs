@@ -1,5 +1,5 @@
 use crate::rla;
-use failure::ResultExt;
+use anyhow::Context;
 use std::process;
 
 #[derive(Debug, Copy, Clone)]
@@ -13,12 +13,12 @@ impl CliCiPlatform {
         Ok(match self {
             CliCiPlatform::Azure => {
                 let token = std::env::var("AZURE_DEVOPS_TOKEN")
-                    .with_context(|_| "failed to read AZURE_DEVOPS_TOKEN env var")?;
+                    .with_context(|| "failed to read AZURE_DEVOPS_TOKEN env var")?;
                 Box::new(rla::ci::AzurePipelines::new(&token))
             }
             CliCiPlatform::Actions => {
                 let token = std::env::var("GITHUB_TOKEN")
-                    .with_context(|_| "failed to read GITHUB_TOKEN env var")?;
+                    .with_context(|| "failed to read GITHUB_TOKEN env var")?;
                 Box::new(rla::ci::GitHubActions::new(&token))
             }
         })
@@ -26,13 +26,13 @@ impl CliCiPlatform {
 }
 
 impl std::str::FromStr for CliCiPlatform {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(input: &str) -> rla::Result<Self> {
         Ok(match input {
             "azure" => CliCiPlatform::Azure,
             "actions" => CliCiPlatform::Actions,
-            other => bail!("unknown CI platform: {}", other),
+            other => anyhow::bail!("unknown CI platform: {}", other),
         })
     }
 }

@@ -1,5 +1,6 @@
-use super::Result;
 use crate::ci::Outcome;
+use crate::Result;
+use anyhow::{bail, format_err};
 use hyper::header;
 use serde::{de::DeserializeOwned, Serialize};
 use std::env;

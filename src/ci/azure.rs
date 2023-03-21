@@ -1,7 +1,7 @@
 #![allow(unused)]
 use crate::ci::{Build, BuildCommit, CiPlatform, Job, Outcome};
 use crate::Result;
-use failure::ResultExt;
+use anyhow::Context;
 use reqwest::blocking::{Client as ReqwestClient, Response};
 use reqwest::{Method, StatusCode};
 use std::borrow::Cow;
@@ -185,7 +185,7 @@ impl AzureBuild {
             return Ok(None);
         }
         let dbg = format!("{:?}", resp);
-        let timeline: Timeline = resp.json().with_context(|_| dbg)?;
+        let timeline: Timeline = resp.json().with_context(|| dbg)?;
         Ok(Some(AzureBuild {
             jobs: timeline
                 .records
@@ -354,7 +354,7 @@ impl CiPlatform for Client {
         if let Some(build) = AzureBuild::new(&self, repo, data)? {
             Ok(Box::new(build))
         } else {
-            Err(failure::err_msg("no build results"))
+            Err(anyhow::anyhow!("no build results"))
         }
     }
 
