@@ -2,6 +2,7 @@ use super::{QueueItem, QueueItemKind};
 
 use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
+use anyhow::bail;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::path::PathBuf;
@@ -228,7 +229,7 @@ impl Worker {
                 let s = &commit_message[BORS_MERGE_PREFIX.len()..];
                 (
                     s[..s.find(' ').ok_or_else(|| {
-                        format_err!("Invalid bors commit message: '{}'", commit_message)
+                        anyhow::format_err!("Invalid bors commit message: '{}'", commit_message)
                     })?]
                         .parse()?,
                     true,

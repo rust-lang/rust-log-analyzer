@@ -5,8 +5,6 @@
     clippy::useless_let_if_seq
 )]
 
-#[macro_use]
-extern crate failure;
 extern crate futures;
 extern crate hyper;
 #[macro_use]

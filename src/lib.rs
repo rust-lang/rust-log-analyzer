@@ -8,8 +8,6 @@
 extern crate aho_corasick;
 extern crate atomicwrites;
 extern crate bincode;
-#[macro_use]
-extern crate failure;
 extern crate fnv;
 extern crate hex;
 extern crate hmac;
@@ -36,4 +34,4 @@ pub use self::index::Index;
 
 pub static USER_AGENT: &str = concat!("rust-lang/rust-log-analyzer ", env!("CARGO_PKG_VERSION"));
 
-pub type Result<T> = std::result::Result<T, failure::Error>;
+pub type Result<T> = anyhow::Result<T>;

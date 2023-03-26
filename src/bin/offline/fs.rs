@@ -1,6 +1,6 @@
 use crate::rla;
+use anyhow::Context;
 use brotli;
-use failure::ResultExt;
 use percent_encoding::{AsciiSet, CONTROLS};
 use std::fs;
 use std::io::{Read, Write};
@@ -28,7 +28,7 @@ const FILENAME_ENCODE_SET: AsciiSet = CONTROLS
 
 pub fn save_compressed(out: &Path, data: &[u8]) -> rla::Result<()> {
     let mut writer = brotli::CompressorWriter::new(
-        fs::File::create(out).with_context(|_| format!("save_compressed: {:?}", out.to_owned()))?,
+        fs::File::create(out).with_context(|| format!("save_compressed: {:?}", out.to_owned()))?,
         BROTLI_BUFFER,
         BROTLI_QUALITY,
         BROTLI_LGWIN,

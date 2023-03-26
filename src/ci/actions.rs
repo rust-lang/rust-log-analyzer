@@ -303,7 +303,7 @@ fn fetch_workflow_run_id_from_check_run(
         }
     }
 
-    bail!("can't find the Workflow Run ID from the Check Run");
+    anyhow::bail!("can't find the Workflow Run ID from the Check Run");
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -332,7 +332,7 @@ fn parse_link_header(content: &str) -> Result<HashMap<LinkRel, String>> {
             };
             result.insert(rel, captures[1].into());
         } else {
-            failure::bail!("invalid link header entry: {}", entry);
+            anyhow::bail!("invalid link header entry: {}", entry);
         }
     }
     Ok(result)

@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use reqwest::blocking::RequestBuilder;
 use std::borrow::Cow;
 use std::io::Read;
@@ -82,10 +83,7 @@ pub fn download_log(
         };
 
         if !resp.status().is_success() {
-            return Some(Err(failure::err_msg(format!(
-                "Downloading log failed: {:?}",
-                resp
-            ))));
+            return Some(Err(anyhow!("Downloading log failed: {:?}", resp)));
         }
 
         let mut bytes: Vec<u8> = vec![];

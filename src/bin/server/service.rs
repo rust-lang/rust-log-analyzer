@@ -1,6 +1,7 @@
 use super::{QueueItem, QueueItemKind};
 
 use crate::rla;
+use anyhow::bail;
 use hyper::{self, Body, Method, StatusCode};
 use hyper::{Request, Response};
 use serde_json;
