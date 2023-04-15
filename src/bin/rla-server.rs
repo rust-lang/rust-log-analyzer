@@ -15,6 +15,7 @@ extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
 use clap::Parser;
+use rla::index::IndexStorage;
 use std::process;
 use std::sync::Arc;
 use std::thread;
@@ -47,7 +48,7 @@ struct Cli {
         long = "index-file",
         help = "The index file to read / write. An existing index file is updated."
     )]
-    index_file: std::path::PathBuf,
+    index_file: IndexStorage,
     #[arg(
         long = "debug-post",
         help = "Post all comments to the given issue instead of the actual PR. Format: \"user/repo#id\""

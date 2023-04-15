@@ -3,14 +3,14 @@ use super::{QueueItem, QueueItemKind};
 use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
 use anyhow::bail;
+use rla::index::IndexStorage;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
-use std::path::PathBuf;
 use std::str;
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
-    index_file: PathBuf,
+    index_file: IndexStorage,
     index: rla::Index,
     extract_config: rla::extract::Config,
     github: rla::github::Client,
@@ -26,7 +26,7 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(
-        index_file: PathBuf,
+        index_file: IndexStorage,
         debug_post: Option<String>,
         queue: crossbeam::channel::Receiver<QueueItem>,
         ci: Box<dyn CiPlatform + Send>,

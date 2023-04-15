@@ -1,13 +1,10 @@
 use super::Result;
-use atomicwrites;
-use bincode;
-use fnv;
-use std;
-use std::fs;
-use std::path::Path;
 use std::slice;
 
+mod storage;
 mod table;
+
+pub use self::storage::IndexStorage;
 
 pub trait IndexData {
     fn sanitized(&self) -> &[u8];
@@ -45,36 +42,49 @@ impl Index {
             .into_iter()
     }
 
-    pub fn save(&self, path: &Path) -> Result<()> {
-        debug!("Saving index to '{}'...", path.display());
-        let file = atomicwrites::AtomicFile::new(path, atomicwrites::AllowOverwrite);
-        file.write(|f| bincode::serialize_into(f, self))?;
+    pub fn save(&self, storage: &IndexStorage) -> Result<()> {
+        debug!("Saving index to '{storage}'...");
+        storage.write(self)?;
         debug!("Index saved.");
         Ok(())
     }
 
-    pub fn load(path: &Path) -> Result<Index> {
-        Index::load_or_create_internal(path, false)
+    pub fn load(storage: &IndexStorage) -> Result<Index> {
+        Index::load_or_create_internal(storage, false)
     }
 
-    pub fn load_or_create(path: &Path) -> Result<Index> {
-        Index::load_or_create_internal(path, true)
+    pub fn load_or_create(storage: &IndexStorage) -> Result<Index> {
+        Index::load_or_create_internal(storage, true)
     }
 
-    fn load_or_create_internal(path: &Path, create: bool) -> Result<Index> {
-        let index;
-
-        if path.exists() || !create {
-            info!("Loading index...");
-            index = bincode::deserialize_from(fs::File::open(path)?)?;
+    fn load_or_create_internal(storage: &IndexStorage, create: bool) -> Result<Index> {
+        info!("Loading index...");
+        let index = if let Some(index) = storage.read()? {
+            index
         } else {
-            info!("Initializing new index...");
-            index = Index::default();
+            if create {
+                info!("Index missing, initializing new index...");
+                Index::default()
+            } else {
+                anyhow::bail!("missing index, aborting");
+            }
         };
 
         info!("Index ready ({} keys).", index.internal.len());
 
         Ok(index)
+    }
+
+    fn deserialize(reader: &mut dyn std::io::Read) -> Result<Self> {
+        Ok(bincode::deserialize_from(reader)?)
+    }
+
+    fn serialize(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> std::result::Result<(), bincode::Error> {
+        bincode::serialize_into(writer, self)?;
+        Ok(())
     }
 }
 
