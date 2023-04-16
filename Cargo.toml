@@ -33,3 +33,5 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 atty = "0.2.14"
 clap = { version = "4.1.8", features = ["derive"] }
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "rt"] }
+aws-sdk-s3 = "0.26.0"
+aws-config = "0.55.1"

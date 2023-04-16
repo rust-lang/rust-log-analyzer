@@ -47,3 +47,10 @@ To initialize a new index file, perform the following steps:
     * You can (temporarily) check the result directory in to the repository to see diffs.
     * Example command: `rla-offline extract-dir --ci actions -i demo.idx -s data/failed -d data/err`
     * *Note: Eventually, the expected results for the test log files will be provided in the repository and used as regression tests.*
+
+### Index file storage
+
+The index file can be stored either in the local filesystem (by providing the
+absolute or relative path to the file) or in S3 (by providing a
+`s3://{bucket}/{key}` URL). The S3 region of the bucket is detected
+automatically at startup.
