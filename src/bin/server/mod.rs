@@ -19,6 +19,7 @@ pub enum QueueItem {
         payload: rla::github::PullRequestEvent,
         delivery_id: String,
     },
+    GracefulShutdown,
 }
 
 impl QueueItem {
@@ -27,6 +28,7 @@ impl QueueItem {
             QueueItem::GitHubStatus { delivery_id, .. } => Some(&delivery_id),
             QueueItem::GitHubCheckRun { delivery_id, .. } => Some(&delivery_id),
             QueueItem::GitHubPullRequest { delivery_id, .. } => Some(&delivery_id),
+            QueueItem::GracefulShutdown => None,
         }
     }
 }

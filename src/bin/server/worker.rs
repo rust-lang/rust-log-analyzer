@@ -84,7 +84,8 @@ impl Worker {
             let _enter = span.enter();
 
             match self.process(item, &span) {
-                Ok(()) => (),
+                Ok(ProcessOutcome::Continue) => (),
+                Ok(ProcessOutcome::Exit) => return Ok(()),
                 Err(e) => error!("Processing queue item failed: {}", e),
             }
         }
@@ -97,7 +98,7 @@ impl Worker {
         self.secondary_repos.iter().find(|r| *r == repo).is_some()
     }
 
-    fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<()> {
+    fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<ProcessOutcome> {
         let (repo, build_id, outcome) = match &item {
             QueueItem::GitHubStatus { payload, .. } => {
                 match self.ci.build_id_from_github_status(&payload) {
@@ -109,7 +110,7 @@ impl Worker {
                             "Ignoring invalid event (ctx: {:?}, url: {:?}).",
                             payload.context, payload.target_url
                         );
-                        return Ok(());
+                        return Ok(ProcessOutcome::Continue);
                     }
                 }
             }
@@ -125,11 +126,20 @@ impl Worker {
                             "Ignoring invalid event (app id: {:?}, url: {:?}).",
                             payload.check_run.app.id, payload.check_run.details_url
                         );
-                        return Ok(());
+                        return Ok(ProcessOutcome::Continue);
                     }
                 }
             }
-            QueueItem::GitHubPullRequest { payload, .. } => return self.process_pr(payload),
+            QueueItem::GitHubPullRequest { payload, .. } => {
+                self.process_pr(payload)?;
+                return Ok(ProcessOutcome::Continue);
+            }
+
+            QueueItem::GracefulShutdown => {
+                info!("persisting the index to disk before shutting down");
+                self.index.save(&self.index_file)?;
+                return Ok(ProcessOutcome::Exit);
+            }
         };
 
         span.record("build_id", &build_id);
@@ -154,7 +164,7 @@ impl Worker {
 
         if !outcome.is_finished() {
             info!("ignoring in-progress build");
-            return Ok(());
+            return Ok(ProcessOutcome::Continue);
         }
 
         // Avoid processing the same build multiple times.
@@ -168,7 +178,7 @@ impl Worker {
             info!("did not learn as it's not an auto build");
         }
 
-        Ok(())
+        Ok(ProcessOutcome::Continue)
     }
 
     fn report_failed(&mut self, build_id: u64, build: &dyn rla::ci::Build) -> rla::Result<()> {
@@ -395,6 +405,11 @@ impl<T: Clone + Eq + Hash> RecentlySeen<T> {
         self.lookup.insert(key.clone());
         self.removal.push_front(key);
     }
+}
+
+enum ProcessOutcome {
+    Continue,
+    Exit,
 }
 
 #[cfg(test)]
