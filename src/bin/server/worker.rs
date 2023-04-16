@@ -1,4 +1,4 @@
-use super::{QueueItem, QueueItemKind};
+use super::QueueItem;
 
 use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
@@ -7,7 +7,7 @@ use rla::index::IndexStorage;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::str;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 const MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS: Duration = Duration::from_secs(60 * 60);
 
@@ -78,7 +78,7 @@ impl Worker {
             let span = span!(
                 tracing::Level::INFO,
                 "request",
-                delivery = item.delivery_id.as_str(),
+                delivery = item.delivery_id(),
                 build_id = tracing::field::Empty
             );
             let _enter = span.enter();
@@ -98,32 +98,38 @@ impl Worker {
     }
 
     fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<()> {
-        let (repo, build_id, outcome) = match &item.kind {
-            QueueItemKind::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
-                    (&ev.repository.full_name, id, None)
+        let (repo, build_id, outcome) = match &item {
+            QueueItem::GitHubStatus { payload, .. } => {
+                match self.ci.build_id_from_github_status(&payload) {
+                    Some(id) if self.is_repo_valid(&payload.repository.full_name) => {
+                        (&payload.repository.full_name, id, None)
+                    }
+                    _ => {
+                        info!(
+                            "Ignoring invalid event (ctx: {:?}, url: {:?}).",
+                            payload.context, payload.target_url
+                        );
+                        return Ok(());
+                    }
                 }
-                _ => {
-                    info!(
-                        "Ignoring invalid event (ctx: {:?}, url: {:?}).",
-                        ev.context, ev.target_url
-                    );
-                    return Ok(());
+            }
+            QueueItem::GitHubCheckRun { payload, .. } => {
+                match self.ci.build_id_from_github_check(&payload) {
+                    Some(id) if self.is_repo_valid(&payload.repository.full_name) => (
+                        &payload.repository.full_name,
+                        id,
+                        Some(&payload.check_run.outcome),
+                    ),
+                    _ => {
+                        info!(
+                            "Ignoring invalid event (app id: {:?}, url: {:?}).",
+                            payload.check_run.app.id, payload.check_run.details_url
+                        );
+                        return Ok(());
+                    }
                 }
-            },
-            QueueItemKind::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
-                    (&ev.repository.full_name, id, Some(&ev.check_run.outcome))
-                }
-                _ => {
-                    info!(
-                        "Ignoring invalid event (app id: {:?}, url: {:?}).",
-                        ev.check_run.app.id, ev.check_run.details_url
-                    );
-                    return Ok(());
-                }
-            },
-            QueueItemKind::GitHubPullRequest(ev) => return self.process_pr(ev),
+            }
+            QueueItem::GitHubPullRequest { payload, .. } => return self.process_pr(payload),
         };
 
         span.record("build_id", &build_id);
