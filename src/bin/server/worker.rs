@@ -7,6 +7,9 @@ use rla::index::IndexStorage;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::str;
+use std::time::{Instant, Duration};
+
+const MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS: Duration = Duration::from_secs(60 * 60);
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
@@ -22,6 +25,8 @@ pub struct Worker {
 
     recently_notified: RecentlySeen<u64>,
     recently_learned: RecentlySeen<String>,
+
+    last_index_backup: Option<Instant>,
 }
 
 impl Worker {
@@ -61,6 +66,8 @@ impl Worker {
 
             recently_notified: RecentlySeen::new(32),
             recently_learned: RecentlySeen::new(256),
+
+            last_index_backup: None,
         })
     }
 
@@ -322,7 +329,16 @@ impl Worker {
             }
         }
 
-        self.index.save(&self.index_file)?;
+        // To avoid persisting the index too many times to storage, we only persist it after some
+        // time elapsed since the last save.
+        match self.last_index_backup {
+            Some(last) if last.elapsed() >= MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS => {
+                self.index.save(&self.index_file)?;
+                self.last_index_backup = Some(Instant::now());
+            }
+            Some(_) => {}
+            None => self.last_index_backup = Some(Instant::now()),
+        }
 
         Ok(())
     }
