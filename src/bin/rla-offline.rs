@@ -12,6 +12,7 @@ extern crate rust_log_analyzer as rla;
 extern crate walkdir;
 
 use clap::Parser;
+use rla::index::IndexStorage;
 use std::path::PathBuf;
 
 mod offline;
@@ -53,7 +54,7 @@ enum Cli {
             long = "index-file",
             help = "The index file to read / write. An existing index file is updated."
         )]
-        index_file: PathBuf,
+        index_file: IndexStorage,
         #[arg(
             short = 'm',
             long = "multiplier",
@@ -79,7 +80,7 @@ enum Cli {
             long = "index-file",
             help = "The index file to read / write."
         )]
-        index_file: PathBuf,
+        index_file: IndexStorage,
         #[arg(
             short = 's',
             long = "source",
@@ -106,7 +107,7 @@ enum Cli {
             long = "index-file",
             help = "The index file to read / write."
         )]
-        index_file: PathBuf,
+        index_file: IndexStorage,
         #[arg(help = "The log file to analyze.")]
         log: PathBuf,
     },

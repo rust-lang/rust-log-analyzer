@@ -1,14 +1,15 @@
 use crate::offline;
 use crate::rla;
 
-use std::path::{Path, PathBuf};
+use rla::index::IndexStorage;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 use walkdir::{self, WalkDir};
 
 pub fn learn(
     ci: &dyn rla::ci::CiPlatform,
-    index_file: &Path,
+    index_file: &IndexStorage,
     inputs: &[PathBuf],
     multiplier: u32,
 ) -> rla::Result<()> {

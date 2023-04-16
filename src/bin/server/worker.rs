@@ -1,16 +1,19 @@
-use super::{QueueItem, QueueItemKind};
+use super::QueueItem;
 
 use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
 use anyhow::bail;
+use rla::index::IndexStorage;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
-use std::path::PathBuf;
 use std::str;
+use std::time::{Duration, Instant};
+
+const MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS: Duration = Duration::from_secs(60 * 60);
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
-    index_file: PathBuf,
+    index_file: IndexStorage,
     index: rla::Index,
     extract_config: rla::extract::Config,
     github: rla::github::Client,
@@ -22,11 +25,13 @@ pub struct Worker {
 
     recently_notified: RecentlySeen<u64>,
     recently_learned: RecentlySeen<String>,
+
+    last_index_backup: Option<Instant>,
 }
 
 impl Worker {
     pub fn new(
-        index_file: PathBuf,
+        index_file: IndexStorage,
         debug_post: Option<String>,
         queue: crossbeam::channel::Receiver<QueueItem>,
         ci: Box<dyn CiPlatform + Send>,
@@ -61,6 +66,8 @@ impl Worker {
 
             recently_notified: RecentlySeen::new(32),
             recently_learned: RecentlySeen::new(256),
+
+            last_index_backup: None,
         })
     }
 
@@ -71,13 +78,14 @@ impl Worker {
             let span = span!(
                 tracing::Level::INFO,
                 "request",
-                delivery = item.delivery_id.as_str(),
+                delivery = item.delivery_id(),
                 build_id = tracing::field::Empty
             );
             let _enter = span.enter();
 
             match self.process(item, &span) {
-                Ok(()) => (),
+                Ok(ProcessOutcome::Continue) => (),
+                Ok(ProcessOutcome::Exit) => return Ok(()),
                 Err(e) => error!("Processing queue item failed: {}", e),
             }
         }
@@ -90,33 +98,48 @@ impl Worker {
         self.secondary_repos.iter().find(|r| *r == repo).is_some()
     }
 
-    fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<()> {
-        let (repo, build_id, outcome) = match &item.kind {
-            QueueItemKind::GitHubStatus(ev) => match self.ci.build_id_from_github_status(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
-                    (&ev.repository.full_name, id, None)
+    fn process(&mut self, item: QueueItem, span: &tracing::Span) -> rla::Result<ProcessOutcome> {
+        let (repo, build_id, outcome) = match &item {
+            QueueItem::GitHubStatus { payload, .. } => {
+                match self.ci.build_id_from_github_status(&payload) {
+                    Some(id) if self.is_repo_valid(&payload.repository.full_name) => {
+                        (&payload.repository.full_name, id, None)
+                    }
+                    _ => {
+                        info!(
+                            "Ignoring invalid event (ctx: {:?}, url: {:?}).",
+                            payload.context, payload.target_url
+                        );
+                        return Ok(ProcessOutcome::Continue);
+                    }
                 }
-                _ => {
-                    info!(
-                        "Ignoring invalid event (ctx: {:?}, url: {:?}).",
-                        ev.context, ev.target_url
-                    );
-                    return Ok(());
+            }
+            QueueItem::GitHubCheckRun { payload, .. } => {
+                match self.ci.build_id_from_github_check(&payload) {
+                    Some(id) if self.is_repo_valid(&payload.repository.full_name) => (
+                        &payload.repository.full_name,
+                        id,
+                        Some(&payload.check_run.outcome),
+                    ),
+                    _ => {
+                        info!(
+                            "Ignoring invalid event (app id: {:?}, url: {:?}).",
+                            payload.check_run.app.id, payload.check_run.details_url
+                        );
+                        return Ok(ProcessOutcome::Continue);
+                    }
                 }
-            },
-            QueueItemKind::GitHubCheckRun(ev) => match self.ci.build_id_from_github_check(&ev) {
-                Some(id) if self.is_repo_valid(&ev.repository.full_name) => {
-                    (&ev.repository.full_name, id, Some(&ev.check_run.outcome))
-                }
-                _ => {
-                    info!(
-                        "Ignoring invalid event (app id: {:?}, url: {:?}).",
-                        ev.check_run.app.id, ev.check_run.details_url
-                    );
-                    return Ok(());
-                }
-            },
-            QueueItemKind::GitHubPullRequest(ev) => return self.process_pr(ev),
+            }
+            QueueItem::GitHubPullRequest { payload, .. } => {
+                self.process_pr(payload)?;
+                return Ok(ProcessOutcome::Continue);
+            }
+
+            QueueItem::GracefulShutdown => {
+                info!("persisting the index to disk before shutting down");
+                self.index.save(&self.index_file)?;
+                return Ok(ProcessOutcome::Exit);
+            }
         };
 
         span.record("build_id", &build_id);
@@ -141,7 +164,7 @@ impl Worker {
 
         if !outcome.is_finished() {
             info!("ignoring in-progress build");
-            return Ok(());
+            return Ok(ProcessOutcome::Continue);
         }
 
         // Avoid processing the same build multiple times.
@@ -155,7 +178,7 @@ impl Worker {
             info!("did not learn as it's not an auto build");
         }
 
-        Ok(())
+        Ok(ProcessOutcome::Continue)
     }
 
     fn report_failed(&mut self, build_id: u64, build: &dyn rla::ci::Build) -> rla::Result<()> {
@@ -322,7 +345,16 @@ impl Worker {
             }
         }
 
-        self.index.save(&self.index_file)?;
+        // To avoid persisting the index too many times to storage, we only persist it after some
+        // time elapsed since the last save.
+        match self.last_index_backup {
+            Some(last) if last.elapsed() >= MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS => {
+                self.last_index_backup = Some(Instant::now());
+                self.index.save(&self.index_file)?;
+            }
+            Some(_) => {}
+            None => self.last_index_backup = Some(Instant::now()),
+        }
 
         Ok(())
     }
@@ -373,6 +405,11 @@ impl<T: Clone + Eq + Hash> RecentlySeen<T> {
         self.lookup.insert(key.clone());
         self.removal.push_front(key);
     }
+}
+
+enum ProcessOutcome {
+    Continue,
+    Exit,
 }
 
 #[cfg(test)]

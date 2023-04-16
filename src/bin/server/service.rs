@@ -1,4 +1,4 @@
-use super::{QueueItem, QueueItemKind};
+use super::QueueItem;
 
 use crate::rla;
 use anyhow::bail;
@@ -76,7 +76,7 @@ impl RlaService {
             return reply(StatusCode::BAD_REQUEST, "Missing delivery ID.\n");
         };
 
-        let item_kind = match event {
+        let item = match event {
             "status" => {
                 let payload = match serde_json::from_slice(body) {
                     Ok(p) => p,
@@ -85,7 +85,10 @@ impl RlaService {
                         return reply(StatusCode::BAD_REQUEST, "Failed to decode payload.\n");
                     }
                 };
-                QueueItemKind::GitHubStatus(payload)
+                QueueItem::GitHubStatus {
+                    payload,
+                    delivery_id,
+                }
             }
             "check_run" => {
                 let payload = match serde_json::from_slice(body) {
@@ -96,10 +99,16 @@ impl RlaService {
                     }
                 };
 
-                QueueItemKind::GitHubCheckRun(payload)
+                QueueItem::GitHubCheckRun {
+                    payload,
+                    delivery_id,
+                }
             }
             "pull_request" => match serde_json::from_slice(body) {
-                Ok(payload) => QueueItemKind::GitHubPullRequest(payload),
+                Ok(payload) => QueueItem::GitHubPullRequest {
+                    payload,
+                    delivery_id,
+                },
                 Err(err) => {
                     error!("Failed to decode 'pull_request' webhook payload: {}", err);
                     return reply(StatusCode::BAD_REQUEST, "Failed to decode payload\n");
@@ -115,10 +124,6 @@ impl RlaService {
             }
         };
 
-        let item = QueueItem {
-            kind: item_kind,
-            delivery_id,
-        };
         match self.queue.send(item) {
             Ok(()) => reply(StatusCode::OK, "Event processed.\n"),
             Err(e) => {

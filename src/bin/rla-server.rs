@@ -14,7 +14,10 @@ extern crate regex;
 extern crate rust_log_analyzer as rla;
 extern crate serde_json;
 
+use crate::server::QueueItem;
 use clap::Parser;
+use crossbeam::channel::Sender;
+use rla::index::IndexStorage;
 use std::process;
 use std::sync::Arc;
 use std::thread;
@@ -47,7 +50,7 @@ struct Cli {
         long = "index-file",
         help = "The index file to read / write. An existing index file is updated."
     )]
-    index_file: std::path::PathBuf,
+    index_file: IndexStorage,
     #[arg(
         long = "debug-post",
         help = "Post all comments to the given issue instead of the actual PR. Format: \"user/repo#id\""
@@ -90,7 +93,10 @@ fn main() {
 
         let (queue_send, queue_recv) = crossbeam::channel::unbounded();
 
-        let service = Arc::new(server::RlaService::new(args.webhook_verify, queue_send)?);
+        let service = Arc::new(server::RlaService::new(
+            args.webhook_verify,
+            queue_send.clone(),
+        )?);
 
         let mut worker = server::Worker::new(
             args.index_file,
@@ -102,7 +108,7 @@ fn main() {
             args.query_builds_from_primary_repo,
         )?;
 
-        thread::spawn(move || {
+        let worker_thread = thread::spawn(move || {
             if let Err(e) = worker.main() {
                 error!("Worker failed, exiting: {}", e);
                 process::exit(1);
@@ -125,9 +131,34 @@ fn main() {
                         }))
                     }
                 }))
+                .with_graceful_shutdown(graceful_shutdown(queue_send))
                 .await
         })?;
 
+        worker_thread.join().expect("worker thread failed");
+
         Ok(())
     });
+}
+
+async fn graceful_shutdown(sender: Sender<QueueItem>) {
+    let ctrl_c = tokio::signal::ctrl_c();
+
+    // ECS uses SIGTERM to signal graceful shutdown must begin.
+    #[cfg(unix)]
+    let mut sigterm =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+    #[cfg(unix)]
+    let sigterm = sigterm.recv();
+
+    #[cfg(not(unix))]
+    let sigterm = std::future::pending(); // Never resolves
+
+    tokio::select! {
+        _ = ctrl_c => {}
+        _ = sigterm => {}
+    };
+
+    info!("graceful shutdown signal received");
+    let _ = sender.send(QueueItem::GracefulShutdown);
 }

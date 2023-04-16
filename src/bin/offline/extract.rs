@@ -1,6 +1,7 @@
 use crate::offline;
 use crate::rla;
 
+use rla::index::IndexStorage;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -31,7 +32,7 @@ fn load_lines<'a>(ci: &dyn rla::ci::CiPlatform, log: &'a [u8]) -> Vec<Line<'a>> 
 
 pub fn dir(
     ci: &dyn rla::ci::CiPlatform,
-    index_file: &Path,
+    index_file: &IndexStorage,
     src_dir: &Path,
     dst_dir: &Path,
 ) -> rla::Result<()> {
@@ -91,7 +92,11 @@ pub fn dir(
     Ok(())
 }
 
-pub fn one(ci: &dyn rla::ci::CiPlatform, index_file: &Path, log_file: &Path) -> rla::Result<()> {
+pub fn one(
+    ci: &dyn rla::ci::CiPlatform,
+    index_file: &IndexStorage,
+    log_file: &Path,
+) -> rla::Result<()> {
     let config = rla::extract::Config::default();
     let index = rla::Index::load(index_file)?;
 
