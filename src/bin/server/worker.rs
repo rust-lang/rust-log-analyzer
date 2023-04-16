@@ -349,8 +349,8 @@ impl Worker {
         // time elapsed since the last save.
         match self.last_index_backup {
             Some(last) if last.elapsed() >= MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS => {
-                self.index.save(&self.index_file)?;
                 self.last_index_backup = Some(Instant::now());
+                self.index.save(&self.index_file)?;
             }
             Some(_) => {}
             None => self.last_index_backup = Some(Instant::now()),

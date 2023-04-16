@@ -5,8 +5,8 @@ use aws_sdk_s3::config::Region;
 use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::operation::get_object::GetObjectError;
 use aws_sdk_s3::Client as S3Client;
+use hyper::body::Buf;
 use std::fs::File;
-use std::io::Cursor;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -143,13 +143,9 @@ impl S3Storage {
                 .await;
 
             match result {
-                Ok(response) => {
-                    // FIXME: this buffers the downloaded data into memory before deserializing it,
-                    // as I'm not aware of a way to convert from AsyncRead to Read.
-                    let mut buf = Vec::new();
-                    tokio::io::copy(&mut response.body.into_async_read(), &mut buf).await?;
-                    Ok(Some(Index::deserialize(&mut Cursor::new(buf))?))
-                }
+                Ok(response) => Ok(Some(Index::deserialize(
+                    &mut response.body.collect().await?.reader(),
+                )?)),
                 Err(err) => {
                     if let SdkError::ServiceError(service_err) = &err {
                         if let GetObjectError::NoSuchKey(_) = service_err.err() {
@@ -167,7 +163,7 @@ impl S3Storage {
             // FIXME: this buffers the serialized data into memory before sending it, as I'm not
             // aware of a way to convert from Write to AsyncWrite.
             let mut buf = Vec::new();
-            index.serialize(&mut Cursor::new(&mut buf))?;
+            index.serialize(&mut buf)?;
 
             self.client
                 .put_object()
