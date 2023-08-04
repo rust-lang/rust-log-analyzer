@@ -24,6 +24,9 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
     ("[command]/usr/bin/git", "##[endgroup]"),
     // Skip clock drift checks
     ("== clock drift check ==", "== end clock drift check =="),
+    // Skip environment variable dumps, as these can contain e.g. a SHA which is different in every
+    // build.
+    ("env:", "##[endgroup]"),
 ];
 
 lazy_static! {
