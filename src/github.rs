@@ -61,11 +61,17 @@ pub struct CommitStatusEvent {
 #[derive(Deserialize)]
 pub struct Pr {
     pub head: PrCommitRef,
+    pub labels: Vec<Label>,
 }
 
 #[derive(Deserialize)]
 pub struct PrCommitRef {
     pub sha: String,
+}
+
+#[derive(Deserialize)]
+pub struct Label {
+    pub name: String,
 }
 
 #[derive(Deserialize)]

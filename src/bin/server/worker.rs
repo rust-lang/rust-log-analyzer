@@ -10,6 +10,7 @@ use std::str;
 use std::time::{Duration, Instant};
 
 const MINIMUM_DELAY_BETWEEN_INDEX_BACKUPS: Duration = Duration::from_secs(60 * 60);
+const SILENCE_LABEL: &str = "rla-silenced";
 
 pub struct Worker {
     debug_post: Option<(String, u32)>,
@@ -268,6 +269,14 @@ impl Worker {
             let pr_info = self.github.query_pr(&self.repo, pr)?;
             if pr_info.head.sha != commit_sha {
                 info!("Build results outdated, skipping report.");
+                return Ok(());
+            }
+            if pr_info
+                .labels
+                .iter()
+                .any(|label| label.name == SILENCE_LABEL)
+            {
+                info!("PR has label `{SILENCE_LABEL}`, skipping report");
                 return Ok(());
             }
         }
