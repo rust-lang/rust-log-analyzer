@@ -23,10 +23,15 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
     // Skip all groups invoking git commands
     ("[command]/usr/bin/git", "##[endgroup]"),
     // Skip clock drift checks
-    ("== clock drift check ==", "== end clock drift check =="),
+    ("#[group]Clock drift check", "##[endgroup]"),
     // Skip environment variable dumps, as these can contain e.g. a SHA which is different in every
     // build.
     ("env:", "##[endgroup]"),
+    // See src/ci/scripts/dump-environment.sh in rust-lang/rust
+    (
+        "environment variables:",
+        "biggest files in the working dir:",
+    ),
 ];
 
 lazy_static! {
