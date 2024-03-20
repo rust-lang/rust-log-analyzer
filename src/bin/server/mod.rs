@@ -1,5 +1,3 @@
-use crate::rla;
-
 pub use self::service::RlaService;
 pub use self::worker::Worker;
 

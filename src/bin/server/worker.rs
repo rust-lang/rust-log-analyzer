@@ -1,6 +1,5 @@
 use super::QueueItem;
 
-use crate::rla;
 use crate::rla::ci::{self, BuildCommit, CiPlatform};
 use anyhow::bail;
 use rla::index::IndexStorage;

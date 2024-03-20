@@ -1,5 +1,4 @@
 use crate::offline;
-use crate::rla;
 
 use rla::index::IndexStorage;
 use std::fs;
@@ -7,7 +6,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
-use walkdir::{self, WalkDir};
+use walkdir::WalkDir;
 
 struct Line<'a> {
     _original: &'a [u8],
