@@ -1,11 +1,10 @@
 use crate::offline;
-use crate::rla;
 
 use rla::index::IndexStorage;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
-use walkdir::{self, WalkDir};
+use walkdir::WalkDir;
 
 pub fn learn(
     ci: &dyn rla::ci::CiPlatform,

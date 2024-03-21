@@ -1,10 +1,8 @@
 use super::QueueItem;
 
-use crate::rla;
 use anyhow::bail;
-use hyper::{self, Body, Method, StatusCode};
+use hyper::{Body, Method, StatusCode};
 use hyper::{Request, Response};
-use serde_json;
 use std::env;
 
 #[derive(Clone)]

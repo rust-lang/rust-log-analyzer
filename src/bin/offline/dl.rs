@@ -1,5 +1,4 @@
 use crate::offline;
-use crate::rla;
 use crate::rla::ci::{self, CiPlatform};
 use std::collections::HashSet;
 use std::io::{self, Write};
