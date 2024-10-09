@@ -36,13 +36,13 @@ static IGNORE_BLOCK: &[(&str, &str)] = &[
 
 lazy_static! {
     static ref IGNORE_BLOCK_START: AhoCorasick =
-        AhoCorasick::new(IGNORE_BLOCK.iter().map(|x| &x.0).cloned());
+        AhoCorasick::new(IGNORE_BLOCK.iter().map(|x| &x.0).cloned()).unwrap();
 }
 
 lazy_static! {
     static ref IGNORE_BLOCK_END: Vec<AhoCorasick> = IGNORE_BLOCK
         .iter()
-        .map(|&s| AhoCorasick::new(iter::once(s.1)))
+        .map(|&s| AhoCorasick::new(iter::once(s.1)).unwrap())
         .collect();
 }
 
