@@ -30,7 +30,7 @@ Runner group name: 'Default Larger Runners'
 Machine name: 'runner'
 ##[group]Operating System
 Ubuntu
-LTS
+20.04.6
 LTS
 ##[endgroup]
 ##[group]Runner Image

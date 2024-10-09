@@ -178,7 +178,10 @@ pub fn extract<'i, I: IndexData + 'i>(
                             let last_idx = blocks.len() - 1;
                             active_block = blocks.remove(last_idx);
                         }
-                        start_printing = prev_section_end;
+                        // prev_section_end' line already contained in some block, so start
+                        // from next one. (Except from case from State::Printing and empty active_block,
+                        // idk?).
+                        start_printing = prev_section_end + 1;
                     } else {
                         start_printing = section_start.saturating_sub(config.context_lines);
                     }
@@ -206,6 +209,7 @@ pub fn extract<'i, I: IndexData + 'i>(
             State::Printing => {
                 if lines[i].score <= config.block_separator_max_score {
                     if !active_block.is_empty() {
+                        active_block.push(lines[i].line);
                         blocks.push(mem::replace(&mut active_block, vec![]));
                     }
                     prev_section_end = i;
