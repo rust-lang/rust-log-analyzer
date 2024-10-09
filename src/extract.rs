@@ -129,97 +129,97 @@ pub fn extract<'i, I: IndexData + 'i>(
             continue;
         }
 
-        if let State::Ignoring(a) = state {
-            if a.find(lines[i].line.sanitized()).is_some() {
-                state = State::SearchingSectionStart;
-            }
-
-            i += 1;
-            continue;
-        }
-
-        if let State::SearchingSectionStart = state {
-            if lines[i].score > config.block_separator_max_score {
-                state = State::SearchingOutlier;
-                section_start = i;
-            } else {
-                if trailing_context > 0 {
-                    trailing_context -= 1;
-                    blocks.last_mut().unwrap().push(lines[i].line);
-                    prev_section_end = i;
+        match state {
+            State::Ignoring(a) => {
+                if a.find(lines[i].line.sanitized()).is_some() {
+                    state = State::SearchingSectionStart;
                 }
 
                 i += 1;
                 continue;
             }
-        }
 
-        if let State::SearchingOutlier = state {
-            if lines[i].score <= config.block_separator_max_score {
-                if trailing_context > 0 {
-                    trailing_context -= 1;
-                    blocks.last_mut().unwrap().push(lines[i].line);
-                    prev_section_end = i;
-                }
-
-                state = State::SearchingSectionStart;
-                i += 1;
-                continue;
-            }
-
-            if lines[i].score >= config.unique_line_min_score {
-                trailing_context = 0;
-
-                let start_printing;
-
-                if prev_section_end + config.block_merge_distance >= section_start {
-                    if !blocks.is_empty() {
-                        let last_idx = blocks.len() - 1;
-                        active_block = blocks.remove(last_idx);
-                    }
-                    start_printing = prev_section_end;
+            State::SearchingSectionStart => {
+                if lines[i].score > config.block_separator_max_score {
+                    state = State::SearchingOutlier;
+                    section_start = i;
                 } else {
-                    start_printing = section_start.saturating_sub(config.context_lines);
+                    if trailing_context > 0 {
+                        trailing_context -= 1;
+                        blocks.last_mut().unwrap().push(lines[i].line);
+                        prev_section_end = i;
+                    }
+
+                    i += 1;
+                    continue;
+                }
+            }
+
+            State::SearchingOutlier => {
+                if lines[i].score <= config.block_separator_max_score {
+                    if trailing_context > 0 {
+                        trailing_context -= 1;
+                        blocks.last_mut().unwrap().push(lines[i].line);
+                        prev_section_end = i;
+                    }
+
+                    state = State::SearchingSectionStart;
+                    i += 1;
+                    continue;
                 }
 
-                for j in start_printing..i {
-                    active_block.push(lines[j].line);
-                }
+                if lines[i].score >= config.unique_line_min_score {
+                    trailing_context = 0;
 
-                state = State::Printing;
-            } else {
-                if trailing_context > 0 {
-                    trailing_context -= 1;
-                    blocks.last_mut().unwrap().push(lines[i].line);
+                    let start_printing;
+
+                    if prev_section_end + config.block_merge_distance >= section_start {
+                        if !blocks.is_empty() {
+                            let last_idx = blocks.len() - 1;
+                            active_block = blocks.remove(last_idx);
+                        }
+                        start_printing = prev_section_end;
+                    } else {
+                        start_printing = section_start.saturating_sub(config.context_lines);
+                    }
+
+                    for j in start_printing..i {
+                        active_block.push(lines[j].line);
+                    }
+
+                    state = State::Printing;
+                } else {
+                    if trailing_context > 0 {
+                        trailing_context -= 1;
+                        blocks.last_mut().unwrap().push(lines[i].line);
+                        prev_section_end = i;
+
+                        // No need to update section_start since we'll trigger the `merge` case above
+                        // anyway (prev_section_end >= section_start).
+                    }
+
+                    i += 1;
+                    continue;
+                }
+            }
+
+            State::Printing => {
+                if lines[i].score <= config.block_separator_max_score {
+                    if !active_block.is_empty() {
+                        blocks.push(mem::replace(&mut active_block, vec![]));
+                    }
                     prev_section_end = i;
+                    state = State::SearchingSectionStart;
 
-                    // No need to update section_start since we'll trigger the `merge` case above
-                    // anyway (prev_section_end >= section_start).
+                    trailing_context = config.context_lines;
+                } else {
+                    active_block.push(lines[i].line);
                 }
 
                 i += 1;
                 continue;
             }
         }
-
-        if let State::Printing = state {
-            if lines[i].score <= config.block_separator_max_score {
-                if !active_block.is_empty() {
-                    blocks.push(mem::replace(&mut active_block, vec![]));
-                }
-                prev_section_end = i;
-                state = State::SearchingSectionStart;
-
-                trailing_context = config.context_lines;
-            } else {
-                active_block.push(lines[i].line);
-            }
-
-            i += 1;
-            continue;
-        }
-
-        unreachable!();
     }
 
     if !active_block.is_empty() {
