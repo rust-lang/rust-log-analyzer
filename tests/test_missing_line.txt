@@ -1,0 +1,109 @@
+2024-10-08T13:24:44.9714395Z Current runner version: '2.320.0'
+2024-10-08T13:24:44.9720211Z Runner name: 'ubuntu-20.04-4core-16gb_f6653e6045ce'
+2024-10-08T13:24:44.9721030Z Runner group name: 'Default Larger Runners'
+2024-10-08T13:24:44.9721819Z Machine name: 'runner'
+2024-10-08T13:24:44.9737572Z ##[group]Operating System
+2024-10-08T13:24:44.9738426Z Ubuntu
+2024-10-08T13:24:44.9738831Z 20.04.6
+2024-10-08T13:24:44.9739117Z LTS
+2024-10-08T13:24:44.9739465Z ##[endgroup]
+2024-10-08T13:24:44.9739831Z ##[group]Runner Image
+2024-10-08T13:24:44.9740250Z Image: ubuntu-20.04
+2024-10-08T13:24:44.9740641Z Version: 20240922.1.0
+2024-10-08T13:24:44.9741642Z Included Software: https://github.com/actions/runner-images/blob/ubuntu20/20240922.1/images/ubuntu/Ubuntu2004-Readme.md
+2024-10-08T13:24:44.9743054Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu20%2F20240922.1
+2024-10-08T13:24:44.9743919Z ##[endgroup]
+2024-10-08T13:24:44.9758386Z ##[group]GITHUB_TOKEN Permissions
+2024-10-08T13:24:44.9760178Z Contents: read
+2024-10-08T13:24:44.9760679Z Metadata: read
+2024-10-08T13:24:44.9761095Z Packages: read
+2024-10-08T13:24:44.9761458Z ##[endgroup]
+2024-10-08T13:24:44.9764576Z Secret source: None
+2024-10-08T13:24:44.9765223Z Prepare workflow directory
+2024-10-08T13:24:45.0790330Z Prepare all required actions
+2024-10-08T13:24:45.0951557Z Getting action download info
+2024-10-08T13:24:45.2809779Z Download action repository 'msys2/setup-msys2@v2.22.0' (SHA:cc11e9188b693c2b100158c3322424c4cc1dadea)
+2024-10-08T13:24:45.7529926Z Download action repository 'actions/checkout@v4' (SHA:eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871)
+2024-10-08T13:24:46.0510433Z Download action repository 'actions/upload-artifact@v4' (SHA:604373da6381bf24206979c74d06a550515601b9)
+2024-10-08T13:24:46.6497915Z Complete job name: PR - mingw-check
+2024-10-08T13:24:46.7427541Z ##[group]Run git config --global core.autocrlf false
+2024-10-08T13:24:46.7428446Z [36;1mgit config --global core.autocrlf false[0m
+2024-10-08T13:24:46.7460563Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2024-10-08T13:24:46.7461452Z env:
+2024-10-08T13:24:46.7462007Z   TOOLSTATE_REPO: https://github.com/rust-lang-nursery/rust-toolstate
+2024-10-08T13:24:46.7462649Z   TOOLSTATE_REPO_ACCESS_TOKEN: 
+2024-10-08T13:24:46.7463065Z   CI_JOB_NAME: mingw-check
+2024-10-08T13:24:46.7463438Z   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+2024-10-08T13:24:46.7463988Z   HEAD_SHA: 8c5b0edbe8c46fc2cd42de2cfc4cce2790262401
+2024-10-08T13:24:46.7464778Z   DOCKER_TOKEN: ***
+2024-10-08T13:24:46.7465139Z   SCCACHE_BUCKET: rust-lang-ci-sccache2
+2024-10-08T13:24:46.7465637Z   CACHE_DOMAIN: ci-caches.rust-lang.org
+2024-10-08T13:24:46.7466055Z ##[endgroup]
+2024-10-08T13:24:47.1799712Z ##[group]Run actions/checkout@v4
+2024-10-08T13:24:47.1800134Z with:
+2024-10-08T13:24:47.1800369Z   fetch-depth: 2
+2024-10-08T13:24:47.1800641Z   repository: rust-lang/rust
+2024-10-08T13:24:47.1801140Z   token: ***
+2024-10-08T13:24:47.1801377Z   ssh-strict: true
+2024-10-08T13:24:47.1801626Z   ssh-user: git
+2024-10-08T13:24:47.1801876Z   persist-credentials: true
+2024-10-08T13:24:47.1802183Z   clean: true
+2024-10-08T13:24:47.1802438Z   sparse-checkout-cone-mode: true
+2024-10-08T13:24:47.1802751Z   fetch-tags: false
+2024-10-08T13:24:47.1802996Z   show-progress: true
+2024-10-08T13:24:47.1803253Z   lfs: false
+2024-10-08T13:24:47.1803479Z   submodules: false
+2024-10-08T13:24:47.1803724Z   set-safe-directory: true
+2024-10-08T13:24:47.1804006Z env:
+2024-10-08T13:24:47.1804400Z   TOOLSTATE_REPO: https://github.com/rust-lang-nursery/rust-toolstate
+2024-10-08T13:24:47.1804896Z   TOOLSTATE_REPO_ACCESS_TOKEN: 
+2024-10-08T13:24:47.1805217Z   CI_JOB_NAME: mingw-check
+2024-10-08T13:24:47.1805672Z   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+2024-10-08T13:24:47.1806109Z   HEAD_SHA: 8c5b0edbe8c46fc2cd42de2cfc4cce2790262401
+2024-10-08T13:24:47.1806629Z   DOCKER_TOKEN: ***
+2024-10-08T13:24:47.1806904Z   SCCACHE_BUCKET: rust-lang-ci-sccache2
+2024-10-08T13:24:47.1807265Z   CACHE_DOMAIN: ci-caches.rust-lang.org
+2024-10-08T13:24:47.1807593Z ##[endgroup]
+2024-10-08T13:24:47.2929497Z Syncing repository: rust-lang/rust
+2024-10-08T13:24:47.2931117Z ##[group]Getting Git version info
+2024-10-08T13:24:47.2931684Z Working directory is '/home/runner/work/rust/rust'
+2024-10-08T13:24:47.2932381Z [command]/usr/bin/git version
+2024-10-08T13:24:47.2932678Z git version 2.46.1
+2024-10-08T13:24:47.2933764Z ##[endgroup]
+2024-10-08T13:24:47.2945100Z Copying '/home/runner/.gitconfig' to '/home/runner/work/_temp/23e68be9-1b8b-4b10-8ace-ed08cab47f1e/.gitconfig'
+2024-10-08T13:24:47.2951942Z Temporarily overriding HOME='/home/runner/work/_temp/23e68be9-1b8b-4b10-8ace-ed08cab47f1e' before making global git config changes
+2024-10-08T13:24:47.2953149Z Adding repository directory to the temporary git global config as a safe directory
+2024-10-08T13:24:47.2957354Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/rust/rust
+2024-10-08T13:24:47.2987507Z Deleting the contents of '/home/runner/work/rust/rust'
+2024-10-08T13:24:47.2990999Z ##[group]Initializing the repository
+2024-10-08T13:24:47.2995629Z [command]/usr/bin/git init /home/runner/work/rust/rust
+2024-10-08T13:24:47.3680602Z hint: Using 'master' as the name for the initial branch. This default branch name
+2024-10-08T13:24:47.3681927Z hint: is subject to change. To configure the initial branch name to use in all
+2024-10-08T13:24:47.3683101Z hint: of your new repositories, which will suppress this warning, call:
+2024-10-08T13:24:47.3683909Z hint:
+2024-10-08T13:24:47.3684561Z hint: 	git config --global init.defaultBranch <name>
+2024-10-08T13:24:47.3685224Z hint:
+2024-10-08T13:24:47.3685726Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2024-10-08T13:24:47.3686482Z hint: 'development'. The just-created branch can be renamed via this command:
+2024-10-08T13:24:47.3686984Z hint:
+2024-10-08T13:24:47.3687251Z hint: 	git branch -m <name>
+2024-10-08T13:24:47.3687907Z Initialized empty Git repository in /home/runner/work/rust/rust/.git/
+2024-10-08T13:24:47.3694337Z [command]/usr/bin/git remote add origin https://github.com/rust-lang/rust
+2024-10-08T13:24:47.3788184Z ##[endgroup]
+2024-10-08T13:24:47.3789110Z ##[group]Disabling automatic garbage collection
+2024-10-08T13:24:47.3793450Z [command]/usr/bin/git config --local gc.auto 0
+2024-10-08T13:24:47.3821131Z ##[endgroup]
+2024-10-08T13:24:47.3821981Z ##[group]Setting up auth
+2024-10-08T13:24:47.3828842Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2024-10-08T13:24:47.3859866Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2024-10-08T13:24:47.7730825Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2024-10-08T13:24:47.7758099Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2024-10-08T13:24:47.7977189Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2024-10-08T13:24:47.8011736Z ##[endgroup]
+2024-10-08T13:24:47.8012475Z ##[group]Fetching the repository
+2024-10-08T13:24:47.8020846Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=2 origin +d7844ebeec0d4ff6b742a4f303ec63e2bfe74a0e:refs/remotes/pull/131375/merge
+2024-10-08T13:24:53.8717035Z From https://github.com/rust-lang/rust
+2024-10-08T13:24:53.8718509Z  * [new ref]           d7844ebeec0d4ff6b742a4f303ec63e2bfe74a0e -> pull/131375/merge
+2024-10-08T13:24:53.8739637Z ##[endgroup]
+2024-10-08T13:24:53.8740518Z ##[group]Determining the checkout info
+2024-10-08T13:24:53.8741825Z ##[endgroup]
