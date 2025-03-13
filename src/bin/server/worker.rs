@@ -295,6 +295,10 @@ impl Worker {
             Some(job_name) => format!("The job **`{}`**", job_name),
             None => "A job".to_owned(),
         };
+        let trailer = match log_variables.doc_url {
+            Some(url) => format!("\nFor more information how to resolve CI failures of this job, visit this [link]({url})."),
+            None => "".to_string(),
+        };
 
         let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
         self.github.post_comment(repo, pr, &format!(r#"
@@ -307,7 +311,7 @@ impl Worker {
 ```
 
 </details>
-        "#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted))?;
+{trailer}"#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted, trailer = trailer))?;
 
         info!("marked build {} as recently notified", build_id);
         self.recently_notified.store(build_id);
