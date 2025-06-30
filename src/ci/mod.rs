@@ -41,6 +41,10 @@ pub trait Job: std::fmt::Display {
     fn log_api_url(&self) -> Option<String> {
         self.log_url()
     }
+
+    fn log_enhanced_url(&self) -> Option<String> {
+        None
+    }
 }
 
 pub trait CiPlatform {

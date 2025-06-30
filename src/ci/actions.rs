@@ -113,6 +113,13 @@ impl Job for GHAJob {
         ))
     }
 
+    fn log_enhanced_url(&self) -> Option<String> {
+        Some(format!(
+            "https://triage.rust-lang.org/gha-logs/{}/{}",
+            self.repo_name, self.inner.id
+        ))
+    }
+
     fn log_file_name(&self) -> String {
         format!("actions-{}-{}", self.inner.id, self.inner.name)
     }
