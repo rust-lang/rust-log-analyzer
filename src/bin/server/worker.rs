@@ -299,10 +299,14 @@ impl Worker {
             Some(url) => format!("\nFor more information how to resolve CI failures of this job, visit this [link]({url})."),
             None => "".to_string(),
         };
+        let plain_enhanced = match job.log_enhanced_url() {
+            Some(enhanced_url) => format!(" [(plain enhanced)]({enhanced_url})"),
+            None => "".to_string(),
+        };
 
         let log_url = job.log_url().unwrap_or_else(|| "unknown".into());
         self.github.post_comment(repo, pr, &format!(r#"
-{opening} failed! Check out the build log: [(web)]({html_url}) [(plain)]({log_url})
+{opening} failed! Check out the build log: [(web)]({html_url}){plain_enhanced} [(plain)]({log_url})
 
 <details><summary><i>Click to see the possible cause of the failure (guessed by this bot)</i></summary>
 
@@ -311,7 +315,7 @@ impl Worker {
 ```
 
 </details>
-{trailer}"#, opening = opening, html_url = job.html_url(), log_url = log_url, log = extracted, trailer = trailer))?;
+{trailer}"#, opening = opening, html_url = job.html_url(), plain_enhanced = plain_enhanced, log_url = log_url, log = extracted, trailer = trailer))?;
 
         info!("marked build {} as recently notified", build_id);
         self.recently_notified.store(build_id);
