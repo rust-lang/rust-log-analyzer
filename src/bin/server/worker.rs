@@ -171,7 +171,7 @@ impl Worker {
         if !outcome.is_passed() {
             self.report_failed(build_id, build.as_ref())?;
         }
-        if build.pr_number().is_some() || build.branch_name() == "auto" {
+        if build.pr_number().is_some() || build.branch_name() == "automation/bors/auto" {
             info!("learning from the log");
             self.learn(build.as_ref())?;
         } else {
