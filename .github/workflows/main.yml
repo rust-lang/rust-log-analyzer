@@ -1,5 +1,13 @@
 name: CI
+
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -8,9 +16,10 @@ jobs:
     steps:
 
       - name: Checkout the source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Install Rust
         run: rustup update stable && rustup default stable
@@ -25,7 +34,7 @@ jobs:
         run: docker build -t rust-log-analyzer .
 
       - name: Deploy to production
-        uses: rust-lang/simpleinfra/github-actions/upload-docker-image@master
+        uses: rust-lang/simpleinfra/github-actions/upload-docker-image@4da88c824d96c01628fbad1e1b97cd24e08216c4 # master
         with:
           image: rust-log-analyzer
           repository: rust-log-analyzer
@@ -35,3 +44,20 @@ jobs:
           aws_access_key_id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
           aws_secret_access_key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
         if: github.ref == 'refs/heads/master'
+
+  zizmor:
+    name: Zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2
+        with:
+          advanced-security: false
+          config: zizmor.yml
