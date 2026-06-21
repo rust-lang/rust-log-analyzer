@@ -296,7 +296,11 @@ impl Worker {
             None => "A job".to_owned(),
         };
         let trailer = match log_variables.doc_url {
-            Some(url) => format!("\nFor more information how to resolve CI failures of this job, visit this [link]({url})."),
+            Some(url) => format!(
+                r#"
+> [!IMPORTANT]
+> For more information how to resolve CI failures of this job, visit this [link]({url})."#
+            ),
             None => "".to_string(),
         };
         let plain_enhanced = match job.log_enhanced_url() {
