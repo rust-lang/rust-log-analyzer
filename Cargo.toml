@@ -34,9 +34,8 @@ atty = "0.2.14"
 clap = { version = "4.1.8", features = ["derive"] }
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "rt", "signal", "macros"] }
 
-# aws release of https://github.com/awslabs/aws-sdk-rust/releases/tag/release-2023-10-26
-aws-sdk-s3 = "0.34.0"
-aws-config = "0.56.1"
+aws-sdk-s3 = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio", "default-https-client"] }
+aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio", "default-https-client"] }
 
 [dev-dependencies]
 pretty_assertions = "1.0"
