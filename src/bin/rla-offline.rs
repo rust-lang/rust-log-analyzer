@@ -63,7 +63,7 @@ enum Cli {
         )]
         multiplier: u32,
         #[arg(
-            help = "The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignore."
+            help = "The log files to learn from.\nDirectories are traversed recursively. Hidden files are ignored."
         )]
         logs: Vec<PathBuf>,
     },
